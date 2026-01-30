@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stellar Web</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div class="controls-container">
+        <button class="controls-toggle" id="controlsToggle">Settings</button>
+        <div class="controls-panel" id="controlsPanel">
+            <!-- Pause Toggle -->
+            <div class="pause-checkbox">
+                <input type="checkbox" id="pauseToggle">
+                <label for="pauseToggle">Pause Animation</label>
+            </div>
+
+            <!-- Node Settings -->
+            <div class="nested-dropdown">
+                <button class="dropdown-toggle" id="nodeToggle">
+                    <span>Node Settings</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="dropdown-content" id="nodeContent">
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Count</span>
+                            <span class="control-value" id="nodeCountValue">50</span>
+                        </div>
+                        <input type="range" id="nodeCount" min="10" max="500" value="50">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Size</span>
+                            <span class="control-value" id="nodeSizeValue">8</span>
+                        </div>
+                        <input type="range" id="nodeSize" min="2" max="20" value="8">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Opacity</span>
+                            <span class="control-value" id="nodeOpacityValue">0.9</span>
+                        </div>
+                        <input type="range" id="nodeOpacity" min="10" max="100" value="90">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Glow</span>
+                            <span class="control-value" id="nodeGlowValue">1.0</span>
+                        </div>
+                        <input type="range" id="nodeGlow" min="0" max="200" value="100">
+                    </div>
+                    <div class="button-row">
+                        <button class="action-button" id="randomizeNodes">Randomize</button>
+                        <button class="action-button secondary" id="resetNodes">Reset</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edge Settings -->
+            <div class="nested-dropdown">
+                <button class="dropdown-toggle" id="edgeToggle">
+                    <span>Edge Settings</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="dropdown-content" id="edgeContent">
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Thickness</span>
+                            <span class="control-value" id="edgeThicknessValue">1.5</span>
+                        </div>
+                        <input type="range" id="edgeThickness" min="5" max="50" value="15">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Opacity</span>
+                            <span class="control-value" id="edgeOpacityValue">0.5</span>
+                        </div>
+                        <input type="range" id="edgeOpacity" min="10" max="100" value="50">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Connectivity Radius</span>
+                            <span class="control-value" id="connectivityRadiusValue">150</span>
+                        </div>
+                        <input type="range" id="connectivityRadius" min="50" max="300" value="150">
+                    </div>
+                    <button class="action-button secondary" id="resetEdges">Reset</button>
+                </div>
+            </div>
+
+            <!-- Space Settings -->
+            <div class="nested-dropdown">
+                <button class="dropdown-toggle" id="spaceToggle">
+                    <span>Space Settings</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="dropdown-content" id="spaceContent">
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Width (X)</span>
+                            <span class="control-value" id="spaceWidthValue">1200</span>
+                        </div>
+                        <input type="range" id="spaceWidth" min="400" max="2000" value="1200">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Height (Y)</span>
+                            <span class="control-value" id="spaceHeightValue">900</span>
+                        </div>
+                        <input type="range" id="spaceHeight" min="400" max="2000" value="900">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Depth (Z)</span>
+                            <span class="control-value" id="spaceDepthValue">1200</span>
+                        </div>
+                        <input type="range" id="spaceDepth" min="400" max="2000" value="1200">
+                    </div>
+                    <button class="action-button secondary" id="resetSpace">Reset</button>
+                </div>
+            </div>
+
+            <!-- Camera Controls -->
+            <div class="nested-dropdown">
+                <button class="dropdown-toggle" id="cameraToggle">
+                    <span>Camera Controls</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="dropdown-content" id="cameraContent">
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Distance</span>
+                            <span class="control-value" id="cameraDistanceValue">-600</span>
+                        </div>
+                        <input type="range" id="cameraDistance" min="-800" max="800" value="-600">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Pan X</span>
+                            <span class="control-value" id="panXValue">0</span>
+                        </div>
+                        <input type="range" id="panX" min="-500" max="500" value="0">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Pan Y</span>
+                            <span class="control-value" id="panYValue">0</span>
+                        </div>
+                        <input type="range" id="panY" min="-500" max="500" value="0">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Rotate X</span>
+                            <span class="control-value" id="rotateXValue">0°</span>
+                        </div>
+                        <input type="range" id="rotateX" min="-180" max="180" value="0">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>Rotate Y</span>
+                            <span class="control-value" id="rotateYValue">0°</span>
+                        </div>
+                        <input type="range" id="rotateY" min="-180" max="180" value="0">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>FOV</span>
+                            <span class="control-value" id="fovValue">500</span>
+                        </div>
+                        <input type="range" id="fov" min="200" max="1000" value="500">
+                    </div>
+                    <button class="action-button secondary" id="resetCamera">Reset</button>
+                </div>
+            </div>
+
+            <!-- Reset All -->
+            <button class="action-button reset-all" id="resetAll">Reset All Settings</button>
+        </div>
+    </div>
+
+    <div class="stats-panel">
+        <button class="stats-toggle open" id="statsToggle">
+            <span>Network Statistics</span>
+            <span class="arrow">▼</span>
+        </button>
+        <div class="stats-content open" id="statsContent">
+            <!-- Basic Metrics -->
+            <div class="stat-row">
+                <span class="stat-label">Total Edges</span>
+                <span class="stat-value" id="totalEdges">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Avg Connections</span>
+                <span class="stat-value" id="avgConnections">0.00</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Network Density</span>
+                <span class="stat-value" id="networkDensity">0.00%</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Isolated Nodes</span>
+                <span class="stat-value" id="isolatedNodes">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Max Connections</span>
+                <span class="stat-value" id="maxConnections">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Min Connections</span>
+                <span class="stat-value" id="minConnections">0</span>
+            </div>
+
+            <div class="stats-divider"></div>
+
+            <!-- Expensive Calculations Toggle -->
+            <div class="stats-checkbox">
+                <input type="checkbox" id="expensiveToggle">
+                <label for="expensiveToggle">Enable Expensive Calculations</label>
+            </div>
+
+            <!-- Expensive Metrics -->
+            <div class="expensive-stats" id="expensiveStats">
+                <div class="stat-row">
+                    <span class="stat-label">Connected Components</span>
+                    <span class="stat-value" id="connectedComponents">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Largest Component</span>
+                    <span class="stat-value" id="largestComponent">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Clustering Coeff</span>
+                    <span class="stat-value" id="clusteringCoeff">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Median Connections</span>
+                    <span class="stat-value" id="medianConnections">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Connection Std Dev</span>
+                    <span class="stat-value" id="connectionStdDev">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
