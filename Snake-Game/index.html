@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            transition: background-color 0.3s;
+            background: #1a1a2e;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            display: none;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 10px;
+            gap: 20px;
+        }
+
+        .score-display {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .power-ups-display {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            max-width: 400px;
+        }
+
+        .power-up-indicator {
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #000;
+        }
+
+        canvas {
+            border: 4px solid;
+            image-rendering: pixelated;
+        }
+
+        .high-scores {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            display: none;
+        }
+
+        .high-scores h3 {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .high-scores ol {
+            padding-left: 25px;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.95);
+            color: #fff;
+            text-align: center;
+            border-radius: 15px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .overlay h1, .overlay h2 {
+            margin-bottom: 20px;
+        }
+
+        .overlay h1 { font-size: 48px; }
+        .overlay h2 { font-size: 32px; }
+
+        .overlay p {
+            margin-bottom: 10px;
+            color: #aaa;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .menu-btn {
+            padding: 15px 30px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            background: #4CAF50;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+
+        .menu-btn:hover { background: #45a049; }
+        .menu-btn.secondary { background: #2196F3; }
+        .menu-btn.secondary:hover { background: #1976D2; }
+        .menu-btn.warning { background: #ff9800; }
+        .menu-btn.warning:hover { background: #f57c00; }
+
+        .option-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+        }
+
+        .option-row label { margin-right: 10px; }
+
+        .map-input {
+            width: 100%;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .controls-info {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        #gameOver, #levelDesigner { display: none; }
+
+        .designer-grid {
+            display: grid;
+            gap: 1px;
+            background: #333;
+            margin: 10px auto;
+            cursor: pointer;
+        }
+
+        .designer-cell {
+            width: 15px;
+            height: 15px;
+            background: #1a1a2e;
+            transition: background 0.1s;
+        }
+
+        .designer-cell.obstacle { background: #ff5555; }
+        .designer-cell:hover { background: #555; }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container" id="gameContainer">
+        <div class="header">
+            <div class="score-display" id="p1Score">P1: <span>0</span></div>
+            <div class="power-ups-display" id="powerUpsDisplay"></div>
+            <div class="score-display" id="p2Score" style="display:none;">P2: <span>0</span></div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div class="high-scores" id="highScores">
+        <h3>HIGH SCORES</h3>
+        <ol id="highScoresList"></ol>
+    </div>
+
+    <div class="overlay" id="startMenu">
+        <h1>SNAKE</h1>
+        <p>Eat food to grow. Avoid walls and yourself.</p>
+        <div class="menu-buttons">
+            <button class="menu-btn" onclick="selectMode('classic')">Classic Mode</button>
+            <button class="menu-btn" onclick="selectMode('powerup')">Power-Up Mode</button>
+            <button class="menu-btn" onclick="selectMode('twoplayer')">Two Player</button>
+            <button class="menu-btn secondary" onclick="selectMode('maze')">Random Maze</button>
+            <button class="menu-btn warning" onclick="showLevelDesigner()">Level Designer</button>
+        </div>
+        <div class="controls-info">
+            <p>P1: WASD | P2: Arrow Keys</p>
+        </div>
+    </div>
+
+    <div class="overlay" id="modeOptions" style="display:none;">
+        <h2 id="modeTitle">Mode Options</h2>
+        <div id="twoPlayerOptions" style="display:none;">
+            <div class="option-row">
+                <label>Enable Power-Ups</label>
+                <input type="checkbox" id="enablePowerUps">
+            </div>
+        </div>
+        <div id="aiDifficultyOptions" style="display:none;">
+            <div class="option-row">
+                <label>AI Difficulty</label>
+                <select id="aiDifficulty" style="padding:5px;font-family:inherit;" onchange="aiDifficulty = this.value;">
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                </select>
+            </div>
+        </div>
+        <div class="option-row">
+            <label>Load Map Code (optional)</label>
+        </div>
+        <input type="text" class="map-input" id="mapCodeInput" placeholder="Paste map code (e.g., 32:00FF...) or leave empty for default">
+        <div class="menu-buttons">
+            <button class="menu-btn" onclick="startGameWithOptions()">Start Game</button>
+            <button class="menu-btn secondary" onclick="backToMenu()">Back</button>
+        </div>
+    </div>
+
+    <div class="overlay" id="levelDesigner" style="display:none;">
+        <h2>Level Designer</h2>
+        <p>Click cells to toggle obstacles. Edges without obstacles will wrap.</p>
+        <div class="option-row">
+            <label>Grid Size</label>
+            <input type="range" id="designerSizeSlider" min="16" max="64" value="32" oninput="updateDesignerSize(this.value)">
+            <span id="designerSizeLabel">32x32</span>
+        </div>
+        <div class="designer-grid" id="designerGrid"></div>
+        <input type="text" class="map-input" id="designerOutput" readonly placeholder="Map code will appear here...">
+        <div class="btn-row">
+            <button class="menu-btn" onclick="copyMapCode()">Copy Code</button>
+            <button class="menu-btn secondary" onclick="clearDesigner()">Clear</button>
+            <button class="menu-btn warning" onclick="testDesignedLevel()">Test Level</button>
+        </div>
+        <div class="btn-row">
+            <button class="menu-btn secondary" onclick="backToMenu()">Back to Menu</button>
+        </div>
+    </div>
+
+    <div class="overlay" id="gameOver" style="display:none;">
+        <h2 id="gameOverTitle">GAME OVER</h2>
+        <p id="gameOverMessage">Final Score: <span id="finalScore">0</span></p>
+        <div class="menu-buttons">
+            <button class="menu-btn" onclick="restartGame()">Play Again</button>
+            <button class="menu-btn secondary" onclick="backToMenu()">Main Menu</button>
+        </div>
+    </div>
+
+    <script>
+        // Game constants
+        const DEFAULT_gridSize = 32;
+        const MIN_gridSize = 16;
+        const MAX_gridSize = 64;
+        let gridSize = DEFAULT_gridSize;
+        let cellSize = 16;
+        let canvasSize = gridSize * cellSize;
+        const BASE_SPEED = 120;
+        const POWER_UP_DURATION = 20000;
+        const APPLES_PER_POWERUP = 5;
+
+        // Power-up types
+        const POWER_UP_TYPES = {
+            SPEED: { name: 'Speed', color: '#FF6B6B', symbol: 'S' },
+            SLOW: { name: 'Slow', color: '#4ECDC4', symbol: 'W' },
+            SHIELD: { name: 'Shield', color: '#FFE66D', symbol: 'H' },
+            MULTIPLIER: { name: '2x', color: '#95E1D3', symbol: 'M' },
+            SHRINK: { name: 'Shrink', color: '#DDA0DD', symbol: 'K' },
+            GHOST: { name: 'Ghost', color: '#B8B8B8', symbol: 'G' },
+            WRAP: { name: 'Wrap', color: '#F38181', symbol: 'P' },
+            TIMER: { name: 'Timer+', color: '#AA96DA', symbol: 'T' }
+        };
+
+        // Game state
+        let canvas, ctx;
+        let gameMode = 'classic';
+        let players = [];
+        let food = null;
+        let obstacles = new Set();
+        let edgeWrap = { top: true, bottom: true, left: true, right: true };
+        let highScores = {
+            classic: [],
+            powerup_easy: [],
+            powerup_medium: [],
+            powerup_hard: []
+        };
+        let gameRunning = false;
+        let gameLoop = null;
+        let scoreInterval = null;
+        let powerUps = [];
+        let activePowerUps = {};
+        let opponentSnakes = [];
+        let colorScheme = {};
+        let applesEaten = 0;
+        let enablePowerUpsInTwoPlayer = false;
+        let aiDifficulty = 'easy';
+        let hardAiMode = 0; // 0=head, 1=ahead, 2=left, 3=right, 4=random
+        let hardAiLastSwitch = 0;
+        let currentMapCode = '';
+        let designerObstacles = new Set();
+        let lastPickedPowerUp = null;
+        let extraFood = [];
+        let designerSize = DEFAULT_gridSize;
+        let isDragging = false;
+        let dragMode = null; // 'add' or 'remove'
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            updateCanvasSize();
+            initDesignerGrid();
+            updateHighScoresDisplay();
+
+            // Toggle AI difficulty visibility when power-ups checkbox changes
+            document.getElementById('enablePowerUps').addEventListener('change', (e) => {
+                document.getElementById('aiDifficultyOptions').style.display =
+                    e.target.checked ? 'block' : 'none';
+            });
+        });
+
+        function updateCanvasSize() {
+            // Adjust cell size based on grid size to keep canvas reasonable
+            cellSize = gridSize <= 32 ? 16 : gridSize <= 48 ? 12 : 10;
+            canvasSize = gridSize * cellSize;
+            canvas.width = canvasSize;
+            canvas.height = canvasSize;
+        }
+
+        // Menu functions
+        function selectMode(mode) {
+            gameMode = mode;
+            document.getElementById('startMenu').style.display = 'none';
+
+            if (mode === 'maze') {
+                gridSize = DEFAULT_gridSize; // Reset to default for random maze
+                currentMapCode = generateRandomMaze();
+                startGameWithOptions();
+                return;
+            }
+
+            document.getElementById('modeOptions').style.display = 'block';
+            document.getElementById('modeTitle').textContent =
+                mode === 'classic' ? 'Classic Mode' :
+                mode === 'powerup' ? 'Power-Up Mode' : 'Two Player Mode';
+            document.getElementById('twoPlayerOptions').style.display =
+                mode === 'twoplayer' ? 'block' : 'none';
+            // Show AI difficulty for power-up mode (two-player shows it when checkbox enabled)
+            const showAiOptions = mode === 'powerup';
+            document.getElementById('aiDifficultyOptions').style.display =
+                showAiOptions ? 'block' : 'none';
+            // Reset AI difficulty to easy when showing options
+            if (showAiOptions) {
+                document.getElementById('aiDifficulty').value = 'easy';
+                aiDifficulty = 'easy';
+            }
+            document.getElementById('mapCodeInput').value = '';
+        }
+
+        function isValidMapCode(code) {
+            if (!code) return false;
+
+            // New format: "size:hexdata"
+            if (code.includes(':')) {
+                const parts = code.split(':');
+                const size = parseInt(parts[0], 10);
+                const hex = parts[1];
+                if (isNaN(size) || size < MIN_gridSize || size > MAX_gridSize) return false;
+                const expectedLen = Math.ceil((size * size) / 4);
+                return /^[0-9a-fA-F]+$/.test(hex) && hex.length === expectedLen;
+            }
+
+            // Legacy format: exactly 256 hex chars for 32x32
+            return code.length === 256 && /^[0-9a-fA-F]+$/.test(code);
+        }
+
+        function backToMenu() {
+            document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
+            document.getElementById('startMenu').style.display = 'block';
+            document.getElementById('gameContainer').style.display = 'none';
+            document.getElementById('highScores').style.display = 'none';
+            stopGame();
+        }
+
+        function startGameWithOptions() {
+            const mapCode = document.getElementById('mapCodeInput')?.value.trim() || '';
+            if (mapCode) {
+                if (isValidMapCode(mapCode)) {
+                    currentMapCode = mapCode.toLowerCase();
+                } else {
+                    alert('Invalid map code. Use format "size:hexdata" or legacy 256 hex chars.');
+                    return;
+                }
+            } else if (gameMode !== 'maze') {
+                // Only reset map code if not maze mode (maze mode sets it before calling this)
+                currentMapCode = '';
+            }
+            enablePowerUpsInTwoPlayer = document.getElementById('enablePowerUps')?.checked || false;
+            aiDifficulty = document.getElementById('aiDifficulty')?.value || 'easy';
+            document.getElementById('modeOptions').style.display = 'none';
+            startGame();
+        }
+
+        // Map functions
+        function parseMapCode(code) {
+            obstacles.clear();
+            edgeWrap = { top: true, bottom: true, left: true, right: true };
+
+            // No custom map - use default grid with edge walls
+            if (!code) {
+                gridSize = DEFAULT_gridSize;
+                updateCanvasSize();
+                addDefaultEdgeWalls();
+                return;
+            }
+
+            let hexData = code;
+            let size = DEFAULT_gridSize;
+
+            // Check for new format with size prefix: "size:hexdata"
+            if (code.includes(':')) {
+                const parts = code.split(':');
+                size = parseInt(parts[0], 10);
+                hexData = parts[1];
+                if (isNaN(size) || size < MIN_gridSize || size > MAX_gridSize) {
+                    size = DEFAULT_gridSize;
+                }
+            } else if (code.length === 256) {
+                // Legacy format - 256 hex chars = 32x32
+                size = 32;
+            } else {
+                // Try to infer size from hex length
+                const totalCells = code.length * 4;
+                size = Math.round(Math.sqrt(totalCells));
+            }
+
+            gridSize = size;
+            updateCanvasSize();
+
+            const totalCells = gridSize * gridSize;
+            const expectedHexLength = Math.ceil(totalCells / 4);
+
+            // Validate hex data
+            if (!hexData || !/^[0-9a-fA-F]+$/.test(hexData)) {
+                addDefaultEdgeWalls();
+                return;
+            }
+
+            // Parse hex data
+            for (let i = 0; i < hexData.length; i++) {
+                const hex = parseInt(hexData[i], 16);
+                for (let bit = 0; bit < 4; bit++) {
+                    const cellIndex = i * 4 + bit;
+                    if (cellIndex >= totalCells) break; // Handle padding
+
+                    if (hex & (8 >> bit)) {
+                        const x = cellIndex % gridSize;
+                        const y = Math.floor(cellIndex / gridSize);
+                        obstacles.add(`${x},${y}`);
+
+                        // Check edges for wrap behavior
+                        if (y === 0) edgeWrap.top = false;
+                        if (y === gridSize - 1) edgeWrap.bottom = false;
+                        if (x === 0) edgeWrap.left = false;
+                        if (x === gridSize - 1) edgeWrap.right = false;
+                    }
+                }
+            }
+        }
+
+        function addDefaultEdgeWalls() {
+            // Add walls on all edges
+            for (let i = 0; i < gridSize; i++) {
+                obstacles.add(`${i},0`);           // Top edge
+                obstacles.add(`${i},${gridSize - 1}`);  // Bottom edge
+                obstacles.add(`0,${i}`);           // Left edge
+                obstacles.add(`${gridSize - 1},${i}`);  // Right edge
+            }
+            edgeWrap = { top: false, bottom: false, left: false, right: false };
+        }
+
+        function generateMapCode(obstacleSet, size = designerSize) {
+            const totalCells = size * size;
+            const hexLength = Math.ceil(totalCells / 4);
+            let code = '';
+
+            for (let i = 0; i < hexLength; i++) {
+                let hex = 0;
+                for (let bit = 0; bit < 4; bit++) {
+                    const cellIndex = i * 4 + bit;
+                    if (cellIndex >= totalCells) break; // Handle padding for non-multiple of 4
+
+                    const x = cellIndex % size;
+                    const y = Math.floor(cellIndex / size);
+                    if (obstacleSet.has(`${x},${y}`)) {
+                        hex |= (8 >> bit);
+                    }
+                }
+                code += hex.toString(16);
+            }
+
+            return `${size}:${code}`;
+        }
+
+        function generateRandomMaze() {
+            const size = gridSize || DEFAULT_gridSize;
+            const obs = new Set();
+            const density = 0.08 + Math.random() * 0.07;
+
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    // Keep spawn areas clear using same logic as designer
+                    if (isInSpawnZone(x, y, size)) continue;
+
+                    if (Math.random() < density) {
+                        obs.add(`${x},${y}`);
+                    }
+                }
+            }
+
+            return generateMapCode(obs, size);
+        }
+
+        // Color scheme
+        function generateColorScheme() {
+            const hue = Math.random() * 360;
+            const saturation = 60 + Math.random() * 40;
+            const lightness = 40 + Math.random() * 20;
+
+            // Food uses a hue offset from player (90 degrees) to be distinct
+            // but also visible against the background (180 degrees from player)
+            const foodHue = (hue + 90) % 360;
+
+            colorScheme = {
+                p1: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+                p2: `hsl(${(hue + 120) % 360}, ${saturation}%, ${lightness}%)`,
+                food: `hsl(${foodHue}, ${Math.min(saturation + 20, 100)}%, ${Math.min(lightness + 15, 70)}%)`,
+                background: `hsl(${(hue + 180) % 360}, ${saturation}%, ${lightness}%)`,
+                border: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+                opponent: `hsl(${(hue + 60) % 360}, ${saturation}%, ${lightness}%)`,
+                obstacle: '#000000'
+            };
+
+            document.body.style.backgroundColor = colorScheme.background;
+            canvas.style.borderColor = colorScheme.border;
+        }
+
+        // Player class
+        class Player {
+            constructor(id, startX, startY, direction, color) {
+                this.id = id;
+                this.segments = [
+                    { x: startX, y: startY },
+                    { x: startX - direction.x, y: startY - direction.y },
+                    { x: startX - direction.x * 2, y: startY - direction.y * 2 }
+                ];
+                this.direction = { ...direction };
+                this.nextDirection = { ...direction };
+                this.bufferedDirection = null; // Input buffer for next move
+                this.color = color;
+                this.score = 0;
+                this.alive = true;
+            }
+
+            get head() { return this.segments[0]; }
+        }
+
+        // Initialize game
+        function startGame() {
+            document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
+            document.getElementById('gameContainer').style.display = 'flex';
+
+            // Show high scores for non-multiplayer modes
+            if (gameMode !== 'twoplayer') {
+                document.getElementById('highScores').style.display = 'block';
+                updateHighScoresDisplay();
+            } else {
+                document.getElementById('highScores').style.display = 'none';
+            }
+
+            parseMapCode(currentMapCode);
+            generateColorScheme();
+            initPlayers();
+            spawnFood();
+
+            applesEaten = 0;
+            powerUps = [];
+            activePowerUps = {};
+            opponentSnakes = [];
+            lastPickedPowerUp = null;
+            extraFood = [];
+            hardAiMode = 0;
+            hardAiLastSwitch = Date.now();
+
+            updateScoreDisplay();
+            document.getElementById('powerUpsDisplay').innerHTML = '';
+            document.getElementById('p2Score').style.display =
+                gameMode === 'twoplayer' ? 'block' : 'none';
+
+            gameRunning = true;
+            gameStep();
+
+            document.addEventListener('keydown', handleKeydown);
+        }
+
+        function initPlayers() {
+            players = [];
+            const centerX = Math.floor(gridSize / 2);
+            const centerY = Math.floor(gridSize / 2);
+
+            if (gameMode === 'twoplayer') {
+                // P1 (WASD) above center moving left, P2 (Arrows) below center moving right
+                const offset = 2;
+                players.push(new Player(1, centerX, centerY - offset, { x: -1, y: 0 }, colorScheme.p1));
+                players.push(new Player(2, centerX, centerY + offset, { x: 1, y: 0 }, colorScheme.p2));
+            } else {
+                players.push(new Player(1, centerX, centerY, { x: 1, y: 0 }, colorScheme.p1));
+            }
+        }
+
+        function stopGame() {
+            gameRunning = false;
+            clearTimeout(gameLoop);
+            clearInterval(scoreInterval);
+            for (const type in activePowerUps) {
+                if (activePowerUps[type]?.timeout) {
+                    clearTimeout(activePowerUps[type].timeout);
+                }
+            }
+            document.removeEventListener('keydown', handleKeydown);
+        }
+
+        function restartGame() {
+            stopGame();
+            document.getElementById('gameOver').style.display = 'none';
+            if (gameMode === 'maze') {
+                gridSize = DEFAULT_gridSize; // Reset to default for random maze
+                currentMapCode = generateRandomMaze();
+            }
+            startGame();
+        }
+
+        // Spawn functions
+        function isOccupied(pos, excludePlayer = null) {
+            if (obstacles.has(`${pos.x},${pos.y}`)) return true;
+            for (const p of players) {
+                if (p === excludePlayer) continue;
+                if (p.segments.some(s => s.x === pos.x && s.y === pos.y)) return true;
+            }
+            if (powerUps.some(p => p.x === pos.x && p.y === pos.y)) return true;
+            if (extraFood.some(f => f.x === pos.x && f.y === pos.y)) return true;
+            for (const opp of opponentSnakes) {
+                if (opp.segments.some(s => s.x === pos.x && s.y === pos.y)) return true;
+            }
+            return false;
+        }
+
+        function spawnFood() {
+            let pos, attempts = 0;
+            do {
+                pos = {
+                    x: Math.floor(Math.random() * gridSize),
+                    y: Math.floor(Math.random() * gridSize)
+                };
+                attempts++;
+            } while (isOccupied(pos) && attempts < 1000);
+            food = pos;
+        }
+
+        function spawnPowerUp() {
+            if (!gameRunning) return;
+
+            // Get types already on the map
+            const typesOnMap = new Set(powerUps.map(p => p.type));
+
+            // Get available types (not on map, not last picked)
+            const allTypes = Object.keys(POWER_UP_TYPES);
+            const availableTypes = allTypes.filter(t =>
+                !typesOnMap.has(t) && t !== lastPickedPowerUp
+            );
+
+            // If no available types (all on map or only last picked available), don't spawn
+            if (availableTypes.length === 0) return;
+
+            const type = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+
+            let pos, attempts = 0;
+            do {
+                pos = {
+                    x: Math.floor(Math.random() * gridSize),
+                    y: Math.floor(Math.random() * gridSize)
+                };
+                attempts++;
+            } while ((isOccupied(pos) || (food && pos.x === food.x && pos.y === food.y)) && attempts < 1000);
+
+            powerUps.push({ x: pos.x, y: pos.y, type });
+        }
+
+        // Power-up functions
+        function activatePowerUp(type, player) {
+            if (type === 'TIMER') {
+                for (const key in activePowerUps) {
+                    if (activePowerUps[key]?.timeout) {
+                        clearTimeout(activePowerUps[key].timeout);
+                        const newDuration = activePowerUps[key].remaining * 2;
+                        activePowerUps[key].remaining = newDuration;
+                        activePowerUps[key].endTime = Date.now() + newDuration;
+                        activePowerUps[key].timeout = setTimeout(() => deactivatePowerUp(key), newDuration);
+                    }
+                }
+                return;
+            }
+
+            if (type === 'SHRINK') {
+                const removeCount = Math.min(2, player.segments.length - 1);
+                for (let i = 0; i < removeCount; i++) player.segments.pop();
+                return;
+            }
+
+            if (activePowerUps[type]?.timeout) {
+                clearTimeout(activePowerUps[type].timeout);
+            }
+
+            spawnOpponentSnake(type);
+
+            activePowerUps[type] = {
+                startTime: Date.now(),
+                endTime: Date.now() + POWER_UP_DURATION,
+                remaining: POWER_UP_DURATION,
+                timeout: setTimeout(() => deactivatePowerUp(type), POWER_UP_DURATION),
+                playerId: player.id
+            };
+
+            // Check if all 6 timed power-ups are active - convert enemies to apples
+            checkAllPowerUpsActive();
+
+            updatePowerUpDisplay();
+        }
+
+        // Timed power-ups (excludes SHRINK and TIMER which are instant)
+        const TIMED_POWERUPS = ['SPEED', 'SLOW', 'SHIELD', 'MULTIPLIER', 'GHOST', 'WRAP'];
+
+        function checkAllPowerUpsActive() {
+            const allTimedActive = TIMED_POWERUPS.every(type => activePowerUps[type]);
+            if (allTimedActive && opponentSnakes.length > 0) {
+                // Convert all enemy snakes to apples (food)
+                for (const opp of opponentSnakes) {
+                    // Each segment becomes food at its location
+                    for (const seg of opp.segments) {
+                        // Spawn extra food at enemy positions
+                        spawnFoodAt(seg.x, seg.y);
+                    }
+                }
+                // Clear all opponent snakes
+                opponentSnakes = [];
+            }
+        }
+
+        function spawnFoodAt(x, y) {
+            // Create extra food items (drawn same as regular food)
+            extraFood.push({ x, y });
+        }
+
+        function deactivatePowerUp(type) {
+            if (activePowerUps[type]) {
+                opponentSnakes = opponentSnakes.filter(o => o.powerUpType !== type);
+                delete activePowerUps[type];
+                updatePowerUpDisplay();
+            }
+        }
+
+        function spawnOpponentSnake(powerUpType) {
+            const MIN_SPAWN_DISTANCE = 8; // Minimum tiles from any player head
+
+            function isTooCloseToPlayer(pos) {
+                for (const p of players) {
+                    if (!p.alive) continue;
+                    const dist = Math.abs(pos.x - p.head.x) + Math.abs(pos.y - p.head.y);
+                    if (dist < MIN_SPAWN_DISTANCE) return true;
+                }
+                return false;
+            }
+
+            let startPos, attempts = 0;
+            do {
+                startPos = {
+                    x: Math.floor(Math.random() * gridSize),
+                    y: Math.floor(Math.random() * gridSize)
+                };
+                attempts++;
+            } while ((isOccupied(startPos) || isTooCloseToPlayer(startPos)) && attempts < 1000);
+
+            const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
+            const dir = dirs[Math.floor(Math.random() * dirs.length)];
+
+            // Enemy length based on AI difficulty: easy=3, medium=4, hard=5
+            const enemyLength = aiDifficulty === 'hard' ? 5 : aiDifficulty === 'medium' ? 4 : 3;
+
+            const segments = [startPos];
+            for (let i = 1; i < enemyLength; i++) {
+                segments.push({
+                    x: (startPos.x - dir.x * i + gridSize) % gridSize,
+                    y: (startPos.y - dir.y * i + gridSize) % gridSize
+                });
+            }
+
+            opponentSnakes.push({ segments, direction: dir, powerUpType });
+        }
+
+        function getDirectionToTarget(from, target) {
+            const dx = target.x - from.x;
+            const dy = target.y - from.y;
+            // Prefer axis with greater distance
+            if (Math.abs(dx) > Math.abs(dy)) {
+                return { x: dx > 0 ? 1 : -1, y: 0 };
+            } else if (Math.abs(dy) > 0) {
+                return { x: 0, y: dy > 0 ? 1 : -1 };
+            }
+            // Same position - pick random
+            const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
+            return dirs[Math.floor(Math.random() * dirs.length)];
+        }
+
+        function getTargetAhead(player, distance) {
+            const head = player.head;
+            const dir = player.direction;
+            let targetX = head.x + dir.x * distance;
+            let targetY = head.y + dir.y * distance;
+            // Clamp to grid bounds
+            targetX = Math.max(0, Math.min(gridSize - 1, targetX));
+            targetY = Math.max(0, Math.min(gridSize - 1, targetY));
+            return { x: targetX, y: targetY };
+        }
+
+        function getValidDirections(head, currentDir) {
+            const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
+            return dirs.filter(d => {
+                // Can't reverse
+                if (d.x === -currentDir.x && d.y === -currentDir.y) return false;
+                const tx = head.x + d.x, ty = head.y + d.y;
+                // Must be in bounds and not obstacle
+                return tx >= 0 && tx < gridSize && ty >= 0 && ty < gridSize &&
+                       !obstacles.has(`${tx},${ty}`);
+            });
+        }
+
+        function getTargetSide(player, side) {
+            const head = player.head;
+            const dir = player.direction;
+            // Perpendicular: left = (-dy, dx), right = (dy, -dx)
+            let offsetX, offsetY;
+            if (side === 'left') {
+                offsetX = -dir.y;
+                offsetY = dir.x;
+            } else {
+                offsetX = dir.y;
+                offsetY = -dir.x;
+            }
+            let targetX = head.x + offsetX;
+            let targetY = head.y + offsetY;
+            // Clamp to grid bounds
+            targetX = Math.max(0, Math.min(gridSize - 1, targetX));
+            targetY = Math.max(0, Math.min(gridSize - 1, targetY));
+            return { x: targetX, y: targetY };
+        }
+
+        function updateOpponentSnakes() {
+            // Find closest alive player for AI targeting
+            const alivePlayers = players.filter(p => p.alive);
+            if (alivePlayers.length === 0) return;
+
+            for (let i = opponentSnakes.length - 1; i >= 0; i--) {
+                const opp = opponentSnakes[i];
+                const head = opp.segments[0];
+
+                // Find nearest player
+                let nearestPlayer = alivePlayers[0];
+                let minDist = Infinity;
+                for (const p of alivePlayers) {
+                    const dist = Math.abs(p.head.x - head.x) + Math.abs(p.head.y - head.y);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearestPlayer = p;
+                    }
+                }
+
+                // Determine AI behavior based on difficulty
+                let targetDir = opp.direction;
+
+                if (aiDifficulty === 'medium') {
+                    // Medium: ALWAYS follow player's head directly
+                    targetDir = getDirectionToTarget(head, nearestPlayer.head);
+                } else if (aiDifficulty === 'hard') {
+                    // Hard: Randomly switch between 5 modes every 1 second
+                    // 0=head, 1=3-ahead, 2=left-side, 3=right-side, 4=random
+                    const now = Date.now();
+                    if (now - hardAiLastSwitch >= 1000) {
+                        hardAiMode = Math.floor(Math.random() * 5);
+                        hardAiLastSwitch = now;
+                    }
+
+                    if (hardAiMode === 0) {
+                        // Follow head
+                        targetDir = getDirectionToTarget(head, nearestPlayer.head);
+                    } else if (hardAiMode === 1) {
+                        // Target 3 tiles ahead
+                        const ahead = getTargetAhead(nearestPlayer, 3);
+                        targetDir = getDirectionToTarget(head, ahead);
+                    } else if (hardAiMode === 2) {
+                        // Target left side of player
+                        const leftSide = getTargetSide(nearestPlayer, 'left');
+                        targetDir = getDirectionToTarget(head, leftSide);
+                    } else if (hardAiMode === 3) {
+                        // Target right side of player
+                        const rightSide = getTargetSide(nearestPlayer, 'right');
+                        targetDir = getDirectionToTarget(head, rightSide);
+                    } else {
+                        // Random movement
+                        const valid = getValidDirections(head, opp.direction);
+                        if (valid.length > 0) {
+                            targetDir = valid[Math.floor(Math.random() * valid.length)];
+                        }
+                    }
+                } else {
+                    // Easy (default): Random direction changes 15% of the time
+                    if (Math.random() < 0.15) {
+                        const valid = getValidDirections(head, opp.direction);
+                        if (valid.length > 0) {
+                            targetDir = valid[Math.floor(Math.random() * valid.length)];
+                        }
+                    }
+                }
+
+                // Check if target direction is valid (not reverse)
+                if (!(targetDir.x === -opp.direction.x && targetDir.y === -opp.direction.y)) {
+                    opp.direction = targetDir;
+                }
+
+                let newX = head.x + opp.direction.x;
+                let newY = head.y + opp.direction.y;
+
+                // Wall/obstacle avoidance
+                if (newX < 0 || newX >= gridSize || newY < 0 || newY >= gridSize ||
+                    obstacles.has(`${newX},${newY}`)) {
+                    const valid = getValidDirections(head, opp.direction);
+                    if (valid.length > 0) {
+                        // For medium/hard, prefer direction toward current target
+                        if (aiDifficulty !== 'easy') {
+                            let target = nearestPlayer.head;
+                            if (aiDifficulty === 'hard') {
+                                if (hardAiMode === 1) target = getTargetAhead(nearestPlayer, 3);
+                                else if (hardAiMode === 2) target = getTargetSide(nearestPlayer, 'left');
+                                else if (hardAiMode === 3) target = getTargetSide(nearestPlayer, 'right');
+                            }
+                            valid.sort((a, b) => {
+                                const distA = Math.abs((head.x + a.x) - target.x) + Math.abs((head.y + a.y) - target.y);
+                                const distB = Math.abs((head.x + b.x) - target.x) + Math.abs((head.y + b.y) - target.y);
+                                return distA - distB;
+                            });
+                        }
+                        opp.direction = valid[0];
+                        newX = head.x + opp.direction.x;
+                        newY = head.y + opp.direction.y;
+                    } else continue;
+                }
+
+                const newHead = { x: newX, y: newY };
+
+                // Check if opponent runs into any part of any player (opponent dies)
+                let oppDied = false;
+                for (const p of players) {
+                    if (p.alive && p.segments.some(s => s.x === newHead.x && s.y === newHead.y)) {
+                        deactivatePowerUp(opp.powerUpType);
+                        oppDied = true;
+                        break;
+                    }
+                }
+                if (oppDied) continue;
+
+                opp.segments.unshift(newHead);
+                opp.segments.pop();
+            }
+        }
+
+        // Game logic
+        function update() {
+            for (const player of players) {
+                if (!player.alive) continue;
+
+                // Apply current direction from nextDirection
+                player.direction = { ...player.nextDirection };
+
+                // Consume buffered input for next move if valid
+                if (player.bufferedDirection) {
+                    const buf = player.bufferedDirection;
+                    // Only apply if not reversing
+                    if (!(buf.x === -player.direction.x && buf.y === -player.direction.y)) {
+                        player.nextDirection = { ...buf };
+                    }
+                    player.bufferedDirection = null;
+                }
+
+                const head = player.head;
+                let newX = head.x + player.direction.x;
+                let newY = head.y + player.direction.y;
+
+                // Edge handling - always wrap, obstacle check handles walls
+                const canWrap = activePowerUps['WRAP'];
+                let wrappedX = false, wrappedY = false;
+
+                // Handle X edge - always wrap
+                if (newX < 0) {
+                    newX = gridSize - 1;
+                    wrappedX = true;
+                } else if (newX >= gridSize) {
+                    newX = 0;
+                    wrappedX = true;
+                }
+
+                // Handle Y edge - always wrap
+                if (newY < 0) {
+                    newY = gridSize - 1;
+                    wrappedY = true;
+                } else if (newY >= gridSize) {
+                    newY = 0;
+                    wrappedY = true;
+                }
+
+                // Obstacle collision - WRAP power-up skips edge obstacles when wrapping
+                if (obstacles.has(`${newX},${newY}`)) {
+                    const isEdgeCell = newX === 0 || newX === gridSize - 1 || newY === 0 || newY === gridSize - 1;
+                    const wrapProtected = canWrap && isEdgeCell && (wrappedX || wrappedY);
+                    if (!wrapProtected) {
+                        if (!handleCollision(player, 'obstacle')) continue;
+                        return;
+                    }
+                }
+
+                // Self collision - exclude last segment since it moves out of the way
+                const lastIdx = player.segments.length - 1;
+                const selfHit = player.segments.some((s, i) => i > 0 && i < lastIdx && s.x === newX && s.y === newY);
+                if (selfHit && !activePowerUps['GHOST']) {
+                    if (!handleCollision(player, 'self')) continue;
+                    return;
+                }
+
+                // Other player collision (two player mode)
+                if (gameMode === 'twoplayer') {
+                    const other = players.find(p => p.id !== player.id && p.alive);
+                    if (other && other.segments.some(s => s.x === newX && s.y === newY)) {
+                        if (!handleCollision(player, 'player')) continue;
+                        return;
+                    }
+                }
+
+                // Opponent snake collision (player runs into opponent)
+                // Exclude last segment since enemy tail always moves (fixed length)
+                for (const opp of opponentSnakes) {
+                    const lastOppIdx = opp.segments.length - 1;
+                    if (opp.segments.some((s, i) => i < lastOppIdx && s.x === newX && s.y === newY)) {
+                        if (!handleCollision(player, 'opponent')) continue;
+                        return;
+                    }
+                }
+
+                // Move
+                player.segments.unshift({ x: newX, y: newY });
+
+                // Food
+                let ateFood = false;
+                if (food && newX === food.x && newY === food.y) {
+                    ateFood = true;
+                    spawnFood();
+                }
+
+                // Check extra food
+                for (let i = extraFood.length - 1; i >= 0; i--) {
+                    if (extraFood[i].x === newX && extraFood[i].y === newY) {
+                        ateFood = true;
+                        extraFood.splice(i, 1);
+                        break;
+                    }
+                }
+
+                if (ateFood) {
+                    applesEaten++;
+
+                    // Apple-based scoring: base = snake length + 10 per active power-up
+                    // If 2x active: its +10 is included in count, then double the total
+                    let appleScore = player.segments.length;
+                    const activePowerUpCount = Object.keys(activePowerUps).length;
+                    appleScore += activePowerUpCount * 10;
+                    if (activePowerUps['MULTIPLIER']) {
+                        appleScore *= 2;
+                    }
+                    player.score += appleScore;
+
+                    // Spawn power-up every 5 apples
+                    if ((gameMode === 'powerup' || (gameMode === 'twoplayer' && enablePowerUpsInTwoPlayer)) &&
+                        applesEaten % APPLES_PER_POWERUP === 0) {
+                        spawnPowerUp();
+                    }
+                } else {
+                    player.segments.pop();
+                }
+
+                // Power-up pickup
+                if (gameMode === 'powerup' || (gameMode === 'twoplayer' && enablePowerUpsInTwoPlayer)) {
+                    for (let i = powerUps.length - 1; i >= 0; i--) {
+                        if (powerUps[i].x === newX && powerUps[i].y === newY) {
+                            lastPickedPowerUp = powerUps[i].type;
+                            activatePowerUp(powerUps[i].type, player);
+                            powerUps.splice(i, 1);
+                        }
+                    }
+                }
+            }
+
+            // Update opponents
+            if (gameMode === 'powerup' || (gameMode === 'twoplayer' && enablePowerUpsInTwoPlayer)) {
+                updateOpponentSnakes();
+            }
+
+            updateScoreDisplay();
+            updatePowerUpDisplay();
+        }
+
+        function handleCollision(player, type) {
+            // Check for shield (works on any collision type)
+            if (activePowerUps['SHIELD']) {
+                deactivatePowerUp('SHIELD');
+                return true;
+            }
+
+            // Check for ghost on self-collision
+            if (type === 'self' && activePowerUps['GHOST']) {
+                return true;
+            }
+
+            // Note: WRAP power-up is handled directly in edge detection, not here
+
+            player.alive = false;
+
+            if (gameMode === 'twoplayer') {
+                const alive = players.filter(p => p.alive);
+                if (alive.length <= 1) {
+                    gameOver(alive[0] || null);
+                }
+            } else {
+                gameOver(null);
+            }
+
+            return false;
+        }
+
+        function getGameSpeed() {
+            let speed = BASE_SPEED;
+            if (activePowerUps['SPEED']) speed *= 0.6;
+            if (activePowerUps['SLOW']) speed *= 1.5;
+            return speed;
+        }
+
+        // Drawing
+        function draw() {
+            ctx.fillStyle = colorScheme.background;
+            ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+            // Grid
+            ctx.strokeStyle = `${colorScheme.p1}15`;
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= gridSize; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * cellSize, 0);
+                ctx.lineTo(i * cellSize, canvasSize);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i * cellSize);
+                ctx.lineTo(canvasSize, i * cellSize);
+                ctx.stroke();
+            }
+
+            // Obstacles
+            ctx.fillStyle = colorScheme.obstacle;
+            for (const obs of obstacles) {
+                const [x, y] = obs.split(',').map(Number);
+                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            }
+
+            // Food
+            if (food) {
+                ctx.fillStyle = colorScheme.food;
+                ctx.fillRect(food.x * cellSize + 2, food.y * cellSize + 2, cellSize - 4, cellSize - 4);
+            }
+
+            // Extra food (from converted enemies)
+            for (const ef of extraFood) {
+                ctx.fillStyle = colorScheme.food;
+                ctx.fillRect(ef.x * cellSize + 2, ef.y * cellSize + 2, cellSize - 4, cellSize - 4);
+            }
+
+            // Power-ups
+            for (const pu of powerUps) {
+                const type = POWER_UP_TYPES[pu.type];
+                ctx.fillStyle = type.color;
+                ctx.fillRect(pu.x * cellSize + 1, pu.y * cellSize + 1, cellSize - 2, cellSize - 2);
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 10px Courier New';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(type.symbol, pu.x * cellSize + cellSize / 2, pu.y * cellSize + cellSize / 2);
+            }
+
+            // Players
+            for (const player of players) {
+                if (!player.alive) continue;
+                ctx.fillStyle = player.color;
+                const isGhost = activePowerUps['GHOST'] && activePowerUps['GHOST'].playerId === player.id;
+                if (isGhost) ctx.globalAlpha = 0.6;
+
+                for (let i = 0; i < player.segments.length; i++) {
+                    const s = player.segments[i];
+                    const pad = i === 0 ? 1 : 2;
+                    ctx.fillRect(s.x * cellSize + pad, s.y * cellSize + pad, cellSize - pad * 2, cellSize - pad * 2);
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            // Opponent snakes
+            ctx.fillStyle = colorScheme.opponent;
+            for (const opp of opponentSnakes) {
+                for (let i = 0; i < opp.segments.length; i++) {
+                    const s = opp.segments[i];
+                    const pad = i === 0 ? 1 : 2;
+                    ctx.fillRect(s.x * cellSize + pad, s.y * cellSize + pad, cellSize - pad * 2, cellSize - pad * 2);
+                }
+            }
+        }
+
+        function gameStep() {
+            if (!gameRunning) return;
+            update();
+            draw();
+            gameLoop = setTimeout(gameStep, getGameSpeed());
+        }
+
+        function updateScoreDisplay() {
+            const p1El = document.querySelector('#p1Score span');
+            if (p1El && players[0]) p1El.textContent = players[0].score;
+
+            if (gameMode === 'twoplayer' && players[1]) {
+                const p2El = document.querySelector('#p2Score span');
+                if (p2El) p2El.textContent = players[1].score;
+            }
+        }
+
+        function updatePowerUpDisplay() {
+            const display = document.getElementById('powerUpsDisplay');
+            display.innerHTML = '';
+            for (const type in activePowerUps) {
+                const pu = POWER_UP_TYPES[type];
+                const remaining = Math.ceil((activePowerUps[type].endTime - Date.now()) / 1000);
+                const indicator = document.createElement('div');
+                indicator.className = 'power-up-indicator';
+                indicator.style.backgroundColor = pu.color;
+                indicator.textContent = `${pu.name} ${remaining}s`;
+                display.appendChild(indicator);
+            }
+        }
+
+        function getHighScoreKey() {
+            if (gameMode === 'classic' || gameMode === 'maze') return 'classic';
+            if (gameMode === 'powerup') return `powerup_${aiDifficulty}`;
+            return null; // Two player has no high scores
+        }
+
+        function getHighScoreLabel() {
+            const key = getHighScoreKey();
+            if (key === 'classic') return 'CLASSIC';
+            if (key === 'powerup_easy') return 'POWER-UP (EASY)';
+            if (key === 'powerup_medium') return 'POWER-UP (MEDIUM)';
+            if (key === 'powerup_hard') return 'POWER-UP (HARD)';
+            return '';
+        }
+
+        function updateHighScoresDisplay() {
+            const key = getHighScoreKey();
+            const list = document.getElementById('highScoresList');
+            const title = document.querySelector('.high-scores h3');
+
+            if (!key) {
+                document.getElementById('highScores').style.display = 'none';
+                return;
+            }
+
+            title.textContent = getHighScoreLabel();
+            const scores = highScores[key] || [];
+            list.innerHTML = scores.length ?
+                scores.map(s => `<li>${s}</li>`).join('') :
+                '<li>No scores yet</li>';
+        }
+
+        // Game over
+        function gameOver(winner) {
+            stopGame();
+            generateColorScheme();
+
+            const titleEl = document.getElementById('gameOverTitle');
+            const msgEl = document.getElementById('gameOverMessage');
+
+            if (gameMode === 'twoplayer') {
+                if (winner) {
+                    titleEl.textContent = `PLAYER ${winner.id} WINS!`;
+                    msgEl.textContent = `Score: ${winner.score}`;
+                } else {
+                    titleEl.textContent = 'DRAW!';
+                    msgEl.textContent = '';
+                }
+            } else {
+                titleEl.textContent = 'GAME OVER';
+                const score = players[0]?.score || 0;
+                msgEl.innerHTML = `Final Score: <span id="finalScore">${score}</span>`;
+                const key = getHighScoreKey();
+                if (key && highScores[key]) {
+                    highScores[key].push(score);
+                    highScores[key].sort((a, b) => b - a);
+                    highScores[key] = highScores[key].slice(0, 5);
+                }
+                updateHighScoresDisplay();
+            }
+
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        // Input
+        function setPlayerDirection(player, newDir) {
+            // Check if this would be a reversal
+            if (newDir.x === -player.direction.x && newDir.y === -player.direction.y) return;
+
+            // If there's already a pending direction change, buffer this one
+            const hasPendingTurn = player.nextDirection.x !== player.direction.x ||
+                                   player.nextDirection.y !== player.direction.y;
+
+            if (hasPendingTurn) {
+                // Buffer for next move (only if different from current nextDirection)
+                if (newDir.x !== player.nextDirection.x || newDir.y !== player.nextDirection.y) {
+                    player.bufferedDirection = { ...newDir };
+                }
+            } else {
+                player.nextDirection = { ...newDir };
+            }
+        }
+
+        function handleKeydown(e) {
+            if (!gameRunning) return;
+
+            const key = e.key.toLowerCase();
+            const p1 = players[0];
+            const p2 = players[1];
+
+            // P1: WASD
+            if (p1?.alive) {
+                if (key === 'w') setPlayerDirection(p1, { x: 0, y: -1 });
+                if (key === 's') setPlayerDirection(p1, { x: 0, y: 1 });
+                if (key === 'a') setPlayerDirection(p1, { x: -1, y: 0 });
+                if (key === 'd') setPlayerDirection(p1, { x: 1, y: 0 });
+            }
+
+            // P2: Arrows (or P1 in single player)
+            const target = gameMode === 'twoplayer' ? p2 : p1;
+            if (target?.alive) {
+                if (e.key === 'ArrowUp') setPlayerDirection(target, { x: 0, y: -1 });
+                if (e.key === 'ArrowDown') setPlayerDirection(target, { x: 0, y: 1 });
+                if (e.key === 'ArrowLeft') setPlayerDirection(target, { x: -1, y: 0 });
+                if (e.key === 'ArrowRight') setPlayerDirection(target, { x: 1, y: 0 });
+            }
+
+            e.preventDefault();
+        }
+
+        // Level Designer
+        function getSpawnProtectionRadius(size) {
+            return Math.max(3, Math.floor(size / 6));
+        }
+
+        function isInSpawnZone(x, y, size) {
+            const centerX = Math.floor(size / 2);
+            const centerY = Math.floor(size / 2);
+            const radius = getSpawnProtectionRadius(size);
+            return Math.abs(x - centerX) <= radius && Math.abs(y - centerY) <= radius;
+        }
+
+        function initDesignerGrid() {
+            const grid = document.getElementById('designerGrid');
+            // Calculate cell size based on designer size
+            const designerCellSize = designerSize <= 32 ? 15 : designerSize <= 48 ? 10 : 8;
+            grid.style.gridTemplateColumns = `repeat(${designerSize}, ${designerCellSize}px)`;
+            grid.innerHTML = '';
+            designerObstacles.clear();
+
+            // Update cell size in CSS
+            const style = document.createElement('style');
+            style.id = 'designer-cell-style';
+            const existing = document.getElementById('designer-cell-style');
+            if (existing) existing.remove();
+            style.textContent = `
+                .designer-cell { width: ${designerCellSize}px; height: ${designerCellSize}px; }
+                .designer-cell.spawn-zone { background: #2a4a2a; cursor: not-allowed; }
+                .designer-cell.spawn-zone:hover { background: #2a4a2a; }
+            `;
+            document.head.appendChild(style);
+
+            for (let y = 0; y < designerSize; y++) {
+                for (let x = 0; x < designerSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'designer-cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+
+                    // Mark spawn zone cells
+                    if (isInSpawnZone(x, y, designerSize)) {
+                        cell.classList.add('spawn-zone');
+                    } else {
+                        cell.addEventListener('mousedown', handleDesignerMouseDown);
+                        cell.addEventListener('mouseenter', handleDesignerMouseEnter);
+                    }
+
+                    grid.appendChild(cell);
+                }
+            }
+
+            // Add global mouseup listener
+            document.addEventListener('mouseup', handleDesignerMouseUp);
+        }
+
+        function handleDesignerMouseDown(e) {
+            e.preventDefault();
+            isDragging = true;
+            const x = parseInt(e.target.dataset.x);
+            const y = parseInt(e.target.dataset.y);
+            const key = `${x},${y}`;
+
+            // Determine drag mode based on initial cell state
+            if (designerObstacles.has(key)) {
+                dragMode = 'remove';
+                designerObstacles.delete(key);
+                e.target.classList.remove('obstacle');
+            } else {
+                dragMode = 'add';
+                designerObstacles.add(key);
+                e.target.classList.add('obstacle');
+            }
+
+            updateDesignerOutput();
+        }
+
+        function handleDesignerMouseEnter(e) {
+            if (!isDragging) return;
+
+            const x = parseInt(e.target.dataset.x);
+            const y = parseInt(e.target.dataset.y);
+
+            // Skip spawn zone
+            if (isInSpawnZone(x, y, designerSize)) return;
+
+            const key = `${x},${y}`;
+
+            if (dragMode === 'add' && !designerObstacles.has(key)) {
+                designerObstacles.add(key);
+                e.target.classList.add('obstacle');
+            } else if (dragMode === 'remove' && designerObstacles.has(key)) {
+                designerObstacles.delete(key);
+                e.target.classList.remove('obstacle');
+            }
+
+            updateDesignerOutput();
+        }
+
+        function handleDesignerMouseUp() {
+            isDragging = false;
+            dragMode = null;
+        }
+
+        function updateDesignerSize(value) {
+            designerSize = parseInt(value, 10);
+            document.getElementById('designerSizeLabel').textContent = `${designerSize}x${designerSize}`;
+            initDesignerGrid();
+            updateDesignerOutput();
+        }
+
+        function toggleDesignerCell(e) {
+            const x = parseInt(e.target.dataset.x);
+            const y = parseInt(e.target.dataset.y);
+
+            // Skip spawn zone
+            if (isInSpawnZone(x, y, designerSize)) return;
+
+            const key = `${x},${y}`;
+
+            if (designerObstacles.has(key)) {
+                designerObstacles.delete(key);
+                e.target.classList.remove('obstacle');
+            } else {
+                designerObstacles.add(key);
+                e.target.classList.add('obstacle');
+            }
+
+            updateDesignerOutput();
+        }
+
+        function updateDesignerOutput() {
+            document.getElementById('designerOutput').value = generateMapCode(designerObstacles);
+        }
+
+        function showLevelDesigner() {
+            document.getElementById('startMenu').style.display = 'none';
+            document.getElementById('levelDesigner').style.display = 'block';
+            designerSize = DEFAULT_gridSize;
+            document.getElementById('designerSizeSlider').value = designerSize;
+            document.getElementById('designerSizeLabel').textContent = `${designerSize}x${designerSize}`;
+            initDesignerGrid();
+        }
+
+        function clearDesigner() {
+            initDesignerGrid();
+            updateDesignerOutput();
+        }
+
+        function copyMapCode() {
+            const code = document.getElementById('designerOutput').value;
+            if (code) {
+                navigator.clipboard.writeText(code);
+                alert('Map code copied!');
+            }
+        }
+
+        function testDesignedLevel() {
+            currentMapCode = generateMapCode(designerObstacles, designerSize);
+            gameMode = 'classic';
+            document.getElementById('levelDesigner').style.display = 'none';
+            startGame();
+        }
+    </script>
+</body>
+</html>
