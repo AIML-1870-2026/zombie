@@ -1,0 +1,2257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boids Swarm Simulation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        /* Theme variables */
+        :root {
+            --bg-color: #f5f5f5;
+            --boid-color: #2c3e50;
+            --boid-color-b: #27ae60;
+            --obstacle-color: #e74c3c;
+            --leader-color: #f39c12;
+            --predator-color: #c0392b;
+            --ui-bg: rgba(255, 255, 255, 0.95);
+            --ui-text: #333;
+            --ui-border: #ddd;
+            --ui-accent: #3498db;
+            --chart-line-1: #3498db;
+            --chart-line-2: #e74c3c;
+            --chart-line-3: #2ecc71;
+        }
+
+        body.dark {
+            --bg-color: #1a1a2e;
+            --boid-color: #eaf6ff;
+            --boid-color-b: #7bed9f;
+            --obstacle-color: #ff6b6b;
+            --leader-color: #feca57;
+            --predator-color: #ff4757;
+            --ui-bg: rgba(30, 30, 50, 0.95);
+            --ui-text: #eee;
+            --ui-border: #444;
+            --ui-accent: #5dade2;
+        }
+
+        body.neon {
+            --bg-color: #0d0d0d;
+            --boid-color: #00ff88;
+            --boid-color-b: #00d4ff;
+            --obstacle-color: #ff00ff;
+            --leader-color: #ffff00;
+            --predator-color: #ff0044;
+            --ui-bg: rgba(20, 20, 20, 0.95);
+            --ui-text: #00ff88;
+            --ui-border: #00ff88;
+            --ui-accent: #00ff88;
+        }
+
+        body.nature {
+            --bg-color: #e8f5e9;
+            --boid-color: #33691e;
+            --boid-color-b: #1565c0;
+            --obstacle-color: #795548;
+            --leader-color: #ff8f00;
+            --predator-color: #d32f2f;
+            --ui-bg: rgba(232, 245, 233, 0.95);
+            --ui-text: #1b5e20;
+            --ui-border: #a5d6a7;
+            --ui-accent: #43a047;
+        }
+
+        /* Stats Button & Dropdown */
+        #stats-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 14px;
+            color: var(--ui-text);
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            z-index: 101;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #stats-btn:hover {
+            background: var(--ui-accent);
+            color: white;
+        }
+
+        #stats-btn .stat-quick {
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+        }
+
+        #stats-dropdown {
+            position: fixed;
+            bottom: 60px;
+            left: 20px;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            border-radius: 8px;
+            padding: 16px;
+            width: 240px;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            display: none;
+            color: var(--ui-text);
+        }
+
+        #stats-dropdown.open {
+            display: block;
+        }
+
+        #stats-dropdown .stats-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.6;
+            margin-bottom: 10px;
+        }
+
+        #stats-dropdown .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        #stats-dropdown .stat-label {
+            opacity: 0.7;
+        }
+
+        #stats-dropdown .stat-value {
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #chart-container {
+            margin-top: 12px;
+            border-top: 1px solid var(--ui-border);
+            padding-top: 12px;
+        }
+
+        #chart-canvas {
+            display: block;
+            width: 100%;
+            height: 80px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 4px;
+        }
+
+        #chart-legend {
+            display: flex;
+            gap: 8px;
+            font-size: 10px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            opacity: 1;
+            transition: opacity 0.2s;
+        }
+
+        .legend-item.disabled {
+            opacity: 0.4;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* Menu Button & Dropdown */
+        #menu-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 14px;
+            color: var(--ui-text);
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            z-index: 101;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #menu-btn:hover {
+            background: var(--ui-accent);
+            color: white;
+        }
+
+        #menu-dropdown {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            border-radius: 8px;
+            padding: 16px;
+            width: 320px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            display: none;
+            color: var(--ui-text);
+        }
+
+        #menu-dropdown.open {
+            display: block;
+        }
+
+        .menu-section {
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--ui-border);
+            padding-bottom: 12px;
+        }
+
+        .menu-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .menu-section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.6;
+            margin-bottom: 10px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            gap: 10px;
+        }
+
+        .control-row label {
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .control-row input[type="range"] {
+            flex: 1;
+            max-width: 120px;
+            accent-color: var(--ui-accent);
+        }
+
+        .control-row .value-display {
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 35px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .control-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--ui-accent);
+        }
+
+        .control-row select {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--ui-border);
+            background: var(--ui-bg);
+            color: var(--ui-text);
+            font-size: 12px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border: 1px solid var(--ui-border);
+            border-radius: 6px;
+            background: var(--ui-bg);
+            color: var(--ui-text);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--ui-accent);
+            color: white;
+            border-color: var(--ui-accent);
+        }
+
+        .btn.active {
+            background: var(--ui-accent);
+            color: white;
+            border-color: var(--ui-accent);
+        }
+
+        .tooltip {
+            position: relative;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 0;
+            bottom: 100%;
+            background: #333;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 200;
+        }
+
+        .tooltip:hover::after {
+            opacity: 1;
+        }
+
+        .sub-controls {
+            margin-left: 26px;
+            margin-top: 6px;
+            padding-left: 10px;
+            border-left: 2px solid var(--ui-border);
+        }
+
+        /* Boundary indicator */
+        #boundary-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 50;
+            transition: box-shadow 0.3s;
+        }
+
+        #boundary-indicator.wrap {
+            box-shadow: inset 0 0 30px rgba(52, 152, 219, 0.3);
+        }
+
+        #boundary-indicator.bounce {
+            box-shadow: inset 0 0 30px rgba(230, 126, 34, 0.3);
+        }
+
+        /* Pause overlay */
+        #pause-overlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--ui-bg);
+            padding: 20px 40px;
+            border-radius: 12px;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--ui-text);
+            display: none;
+            z-index: 150;
+            backdrop-filter: blur(10px);
+        }
+
+        #pause-overlay.visible {
+            display: block;
+        }
+
+        /* Scrollbar styling */
+        #menu-dropdown::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #menu-dropdown::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #menu-dropdown::-webkit-scrollbar-thumb {
+            background: var(--ui-border);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="boundary-indicator" class="wrap"></div>
+
+    <button id="stats-btn">📊 <span class="stat-quick" id="stat-fps-quick">60</span> UPS</button>
+
+    <div id="stats-dropdown">
+        <div class="stats-title">Statistics</div>
+        <div class="stat-row">
+            <span class="stat-label">UPS</span>
+            <span class="stat-value" id="stat-fps">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Boids</span>
+            <span class="stat-value" id="stat-boids">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Avg Speed</span>
+            <span class="stat-value" id="stat-speed">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Avg Neighbors</span>
+            <span class="stat-value" id="stat-neighbors">0</span>
+        </div>
+        <div id="chart-container">
+            <canvas id="chart-canvas" width="208" height="80"></canvas>
+            <div id="chart-legend">
+                <div class="legend-item" data-metric="neighbors">
+                    <div class="legend-dot" style="background: var(--chart-line-1)"></div>
+                    <span>Neighbors</span>
+                </div>
+                <div class="legend-item" data-metric="speed">
+                    <div class="legend-dot" style="background: var(--chart-line-2)"></div>
+                    <span>Speed Var</span>
+                </div>
+                <div class="legend-item" data-metric="compactness">
+                    <div class="legend-dot" style="background: var(--chart-line-3)"></div>
+                    <span>Compactness</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button id="menu-btn">☰ Menu</button>
+
+    <div id="menu-dropdown">
+        <div class="menu-section">
+            <div class="menu-section-title">Simulation</div>
+            <div class="btn-row">
+                <button class="btn" id="btn-pause">⏸ Pause</button>
+                <button class="btn" id="btn-reset">↺ Reset</button>
+            </div>
+            <div class="control-row" style="margin-top: 10px;">
+                <label class="tooltip" data-tooltip="Simulation speed multiplier">Speed</label>
+                <input type="range" id="speed-mult" min="0.25" max="3" step="0.25" value="1">
+                <span class="value-display" id="speed-mult-val">1x</span>
+            </div>
+        </div>
+
+        <div class="menu-section">
+            <div class="menu-section-title">Parameters</div>
+            <div class="control-row">
+                <label class="tooltip" data-tooltip="How strongly boids avoid crowding">Separation</label>
+                <input type="range" id="param-separation" min="0" max="5" step="0.1" value="1.5">
+                <span class="value-display" id="val-separation">1.5</span>
+            </div>
+            <div class="control-row">
+                <label class="tooltip" data-tooltip="How strongly boids match neighbor direction">Alignment</label>
+                <input type="range" id="param-alignment" min="0" max="5" step="0.1" value="1">
+                <span class="value-display" id="val-alignment">1.0</span>
+            </div>
+            <div class="control-row">
+                <label class="tooltip" data-tooltip="How strongly boids move toward flock center">Cohesion</label>
+                <input type="range" id="param-cohesion" min="0" max="5" step="0.1" value="1">
+                <span class="value-display" id="val-cohesion">1.0</span>
+            </div>
+            <div class="control-row">
+                <label class="tooltip" data-tooltip="Distance to detect nearby boids (pixels)">Neighbor Radius</label>
+                <input type="range" id="param-radius" min="20" max="200" step="5" value="50">
+                <span class="value-display" id="val-radius">50</span>
+            </div>
+            <div class="control-row">
+                <label class="tooltip" data-tooltip="Maximum boid velocity">Max Speed</label>
+                <input type="range" id="param-maxspeed" min="1" max="10" step="0.5" value="4">
+                <span class="value-display" id="val-maxspeed">4.0</span>
+            </div>
+            <div class="control-row">
+                <label class="tooltip" data-tooltip="Maximum steering force per frame">Max Force</label>
+                <input type="range" id="param-maxforce" min="0.1" max="1" step="0.05" value="0.3">
+                <span class="value-display" id="val-maxforce">0.30</span>
+            </div>
+            <div class="control-row">
+                <label class="tooltip" data-tooltip="Number of boids in simulation">Boid Count</label>
+                <input type="range" id="param-count" min="50" max="2000" step="50" value="300">
+                <span class="value-display" id="val-count">300</span>
+            </div>
+        </div>
+
+        <div class="menu-section">
+            <div class="menu-section-title">Presets</div>
+            <div class="btn-row">
+                <button class="btn tooltip" id="preset-schooling" data-tooltip="Fish-like coordinated movement">Schooling</button>
+                <button class="btn tooltip" id="preset-chaotic" data-tooltip="Erratic insect-like behavior">Chaotic</button>
+                <button class="btn tooltip" id="preset-cluster" data-tooltip="Dense flock formation">Tight Cluster</button>
+            </div>
+        </div>
+
+        <div class="menu-section">
+            <div class="menu-section-title">Features</div>
+            <div class="control-row">
+                <label>
+                    <input type="checkbox" id="feat-perception">
+                    <span class="tooltip" data-tooltip="Only detect neighbors within forward FOV">Perception Cone</span>
+                </label>
+            </div>
+            <div class="sub-controls" id="perception-controls" style="display: none;">
+                <div class="control-row">
+                    <label>FOV</label>
+                    <input type="range" id="param-fov" min="90" max="360" step="10" value="270">
+                    <span class="value-display" id="val-fov">270°</span>
+                </div>
+                <div class="control-row">
+                    <label>
+                        <input type="checkbox" id="feat-show-cones"> Show Cones
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-row">
+                <label>
+                    <input type="checkbox" id="feat-obstacles">
+                    <span class="tooltip" data-tooltip="Add circular obstacles (right-click to paint)">Obstacles</span>
+                </label>
+            </div>
+            <div class="sub-controls" id="obstacle-controls" style="display: none;">
+                <div class="control-row">
+                    <label>Radius</label>
+                    <input type="range" id="param-obstacle-radius" min="10" max="100" step="5" value="30">
+                    <span class="value-display" id="val-obstacle-radius">30</span>
+                </div>
+                <div class="control-row">
+                    <label>Count</label>
+                    <input type="range" id="param-obstacle-count" min="1" max="20" step="1" value="5">
+                    <span class="value-display" id="val-obstacle-count">5</span>
+                </div>
+                <div class="btn-row">
+                    <button class="btn" id="btn-spawn-obstacles">Spawn Random</button>
+                    <button class="btn" id="btn-clear-obstacles">Clear All</button>
+                </div>
+            </div>
+
+            <div class="control-row">
+                <label class="tooltip" data-tooltip="Add special boids that attract or repel">Leader/Predator</label>
+                <select id="feat-leader-mode">
+                    <option value="none">None</option>
+                    <option value="leader">Leader</option>
+                    <option value="predator">Predator</option>
+                    <option value="both">Both</option>
+                </select>
+            </div>
+
+            <div class="control-row">
+                <label>
+                    <input type="checkbox" id="feat-species">
+                    <span class="tooltip" data-tooltip="Split into two species with different behaviors">Two Species</span>
+                </label>
+            </div>
+            <div class="sub-controls" id="species-controls" style="display: none;">
+                <div class="control-row">
+                    <label>Cross Separation</label>
+                    <input type="range" id="param-cross-sep" min="0" max="5" step="0.1" value="2">
+                    <span class="value-display" id="val-cross-sep">2.0</span>
+                </div>
+                <div class="control-row">
+                    <label>Cross Cohesion</label>
+                    <input type="range" id="param-cross-coh" min="0" max="5" step="0.1" value="0">
+                    <span class="value-display" id="val-cross-coh">0.0</span>
+                </div>
+            </div>
+
+            <div class="control-row">
+                <label>
+                    <input type="checkbox" id="feat-spatial" checked>
+                    <span class="tooltip" data-tooltip="Use grid for faster neighbor lookups">Spatial Partitioning</span>
+                </label>
+            </div>
+            <div class="sub-controls" id="spatial-controls">
+                <div class="control-row">
+                    <label>
+                        <input type="checkbox" id="feat-show-grid"> Show Grid
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-row">
+                <label>
+                    <input type="checkbox" id="feat-click-spawn" checked>
+                    <span class="tooltip" data-tooltip="Left-click to spawn boids (Shift+click for 50)">Click to Spawn</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="menu-section">
+            <div class="menu-section-title">Visuals</div>
+            <div class="control-row">
+                <label>Theme</label>
+                <select id="theme-select">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="neon">Neon</option>
+                    <option value="nature">Nature</option>
+                </select>
+            </div>
+            <div class="control-row">
+                <label>
+                    <input type="checkbox" id="feat-trails"> Trails
+                </label>
+            </div>
+            <div class="sub-controls" id="trail-controls" style="display: none;">
+                <div class="control-row">
+                    <label>Length</label>
+                    <input type="range" id="param-trail-length" min="5" max="50" step="1" value="20">
+                    <span class="value-display" id="val-trail-length">20</span>
+                </div>
+            </div>
+            <div class="control-row">
+                <label>
+                    <input type="checkbox" id="feat-simple-boids">
+                    <span class="tooltip" data-tooltip="Use simple squares for faster rendering">Simple Boids</span>
+                </label>
+            </div>
+            <div class="control-row">
+                <label>Boundary</label>
+                <select id="boundary-mode">
+                    <option value="wrap">Wrap</option>
+                    <option value="bounce">Bounce</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="menu-section">
+            <div class="menu-section-title">Data</div>
+            <div class="btn-row">
+                <button class="btn" id="btn-export">Export Preset</button>
+                <button class="btn" id="btn-import">Import Preset</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pause-overlay">PAUSED</div>
+
+    <script>
+        // ============================================
+        // Web Worker Code (as string for Blob)
+        // ============================================
+        const workerCode = `
+            let boids = [];
+            let config = {
+                separation: 1.5,
+                alignment: 1.0,
+                cohesion: 1.0,
+                neighborRadius: 50,
+                maxSpeed: 4,
+                maxForce: 0.3,
+                perceptionCone: false,
+                fov: 270,
+                obstacles: [],
+                obstaclesEnabled: false,
+                leaderMode: 'none',
+                twoSpecies: false,
+                crossSeparation: 2,
+                crossCohesion: 0,
+                spatialPartitioning: true,
+                boundaryMode: 'wrap',
+                width: 800,
+                height: 600
+            };
+            let grid = null;
+            let cellSize = 50;
+
+            // Leader and predator as autonomous boids
+            let leaderBoid = null;
+            let predatorBoid = null;
+
+            function createSpecialBoid(x, y) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = config.maxSpeed * 0.6;
+                return {
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    wanderAngle: Math.random() * Math.PI * 2
+                };
+            }
+
+            function updateSpecialBoid(boid, dt) {
+                // Wander behavior - gradually change direction
+                boid.wanderAngle += (Math.random() - 0.5) * 0.5;
+                const wanderX = Math.cos(boid.wanderAngle) * config.maxForce * 0.8;
+                const wanderY = Math.sin(boid.wanderAngle) * config.maxForce * 0.8;
+
+                boid.vx += wanderX * dt;
+                boid.vy += wanderY * dt;
+
+                // Limit speed
+                const speed = Math.sqrt(boid.vx * boid.vx + boid.vy * boid.vy);
+                const maxSpd = config.maxSpeed * 0.8;
+                if (speed > maxSpd) {
+                    boid.vx = (boid.vx / speed) * maxSpd;
+                    boid.vy = (boid.vy / speed) * maxSpd;
+                }
+
+                // Update position
+                boid.x += boid.vx * dt;
+                boid.y += boid.vy * dt;
+
+                // Boundary handling
+                if (config.boundaryMode === 'wrap') {
+                    if (boid.x < 0) boid.x += config.width;
+                    if (boid.x >= config.width) boid.x -= config.width;
+                    if (boid.y < 0) boid.y += config.height;
+                    if (boid.y >= config.height) boid.y -= config.height;
+                } else {
+                    if (boid.x < 20) { boid.x = 20; boid.vx = Math.abs(boid.vx); }
+                    if (boid.x >= config.width - 20) { boid.x = config.width - 21; boid.vx = -Math.abs(boid.vx); }
+                    if (boid.y < 20) { boid.y = 20; boid.vy = Math.abs(boid.vy); }
+                    if (boid.y >= config.height - 20) { boid.y = config.height - 21; boid.vy = -Math.abs(boid.vy); }
+                }
+            }
+
+            function createBoid(x, y, species = 0) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = config.maxSpeed * 0.5;
+                return {
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    species: species,
+                    neighborCount: 0
+                };
+            }
+
+            function initBoids(count) {
+                boids = [];
+                for (let i = 0; i < count; i++) {
+                    const species = config.twoSpecies ? (i < count / 2 ? 0 : 1) : 0;
+                    boids.push(createBoid(
+                        Math.random() * config.width,
+                        Math.random() * config.height,
+                        species
+                    ));
+                }
+            }
+
+            function buildGrid() {
+                cellSize = Math.max(config.neighborRadius, 50);
+                const cols = Math.ceil(config.width / cellSize);
+                const rows = Math.ceil(config.height / cellSize);
+                grid = new Array(cols * rows).fill(null).map(() => []);
+
+                for (let i = 0; i < boids.length; i++) {
+                    const b = boids[i];
+                    const col = Math.floor(b.x / cellSize) % cols;
+                    const row = Math.floor(b.y / cellSize) % rows;
+                    const idx = (row < 0 ? row + rows : row) * cols + (col < 0 ? col + cols : col);
+                    if (grid[idx]) grid[idx].push(i);
+                }
+
+                return { cols, rows };
+            }
+
+            function getNeighborIndices(boid, cols, rows) {
+                const col = Math.floor(boid.x / cellSize);
+                const row = Math.floor(boid.y / cellSize);
+                const indices = [];
+
+                for (let dc = -1; dc <= 1; dc++) {
+                    for (let dr = -1; dr <= 1; dr++) {
+                        let c = col + dc;
+                        let r = row + dr;
+
+                        if (config.boundaryMode === 'wrap') {
+                            c = ((c % cols) + cols) % cols;
+                            r = ((r % rows) + rows) % rows;
+                        } else {
+                            if (c < 0 || c >= cols || r < 0 || r >= rows) continue;
+                        }
+
+                        const idx = r * cols + c;
+                        if (grid[idx]) {
+                            for (const i of grid[idx]) {
+                                indices.push(i);
+                            }
+                        }
+                    }
+                }
+                return indices;
+            }
+
+            // Reusable result object to avoid allocations in hot loop
+            const distResult = { dx: 0, dy: 0, distSq: 0 };
+
+            function distance(b1, b2) {
+                let dx = b2.x - b1.x;
+                let dy = b2.y - b1.y;
+
+                if (config.boundaryMode === 'wrap') {
+                    if (Math.abs(dx) > config.width / 2) {
+                        dx = dx > 0 ? dx - config.width : dx + config.width;
+                    }
+                    if (Math.abs(dy) > config.height / 2) {
+                        dy = dy > 0 ? dy - config.height : dy + config.height;
+                    }
+                }
+
+                // Reuse object to avoid allocations
+                distResult.dx = dx;
+                distResult.dy = dy;
+                distResult.distSq = dx * dx + dy * dy;
+                return distResult;
+            }
+
+            // Pre-computed FOV cosine threshold (updated when config changes)
+            let fovCosThreshold = 0;
+
+            function updateFovThreshold() {
+                fovCosThreshold = Math.cos((config.fov / 2) * Math.PI / 180);
+            }
+
+            function isInFOV(boid, dx, dy, dist, speed) {
+                if (!config.perceptionCone || dist === 0 || speed === 0) return true;
+
+                // Dot product: cos(angle) = (v · d) / (|v| * |d|)
+                // v = velocity vector (vx, vy), d = direction to neighbor (dx, dy)
+                const dot = boid.vx * dx + boid.vy * dy;
+                const cosAngle = dot / (speed * dist);
+
+                // If cosAngle >= threshold, neighbor is within FOV
+                return cosAngle >= fovCosThreshold;
+            }
+
+            // Reusable result object for limit function
+            const limitResult = { x: 0, y: 0 };
+
+            function limit(vx, vy, max) {
+                const mag = Math.sqrt(vx * vx + vy * vy);
+                if (mag > max && mag > 0) {
+                    const scale = max / mag;
+                    limitResult.x = vx * scale;
+                    limitResult.y = vy * scale;
+                } else {
+                    limitResult.x = vx;
+                    limitResult.y = vy;
+                }
+                return limitResult;
+            }
+
+            function updateBoids(dt) {
+                const { cols, rows } = config.spatialPartitioning ? buildGrid() : { cols: 1, rows: 1 };
+                const radiusSq = config.neighborRadius * config.neighborRadius;
+
+                const newBoids = boids.map((boid, idx) => {
+                    let sepX = 0, sepY = 0, sepCount = 0;
+                    let aliX = 0, aliY = 0, aliCount = 0;
+                    let cohX = 0, cohY = 0, cohCount = 0;
+                    let crossSepX = 0, crossSepY = 0, crossSepCount = 0;
+                    let crossCohX = 0, crossCohY = 0, crossCohCount = 0;
+                    let totalNeighbors = 0;
+
+                    // Pre-compute boid speed for FOV check
+                    const boidSpeed = Math.sqrt(boid.vx * boid.vx + boid.vy * boid.vy);
+
+                    // Get candidate indices (spatial partitioning) or iterate all
+                    const useSpatial = config.spatialPartitioning;
+                    const candidates = useSpatial ? getNeighborIndices(boid, cols, rows) : null;
+                    const candidateCount = useSpatial ? candidates.length : boids.length;
+
+                    for (let ci = 0; ci < candidateCount; ci++) {
+                        const i = useSpatial ? candidates[ci] : ci;
+                        if (i === idx) continue;
+
+                        const other = boids[i];
+                        distance(boid, other);
+                        const { dx, dy, distSq } = distResult;
+
+                        // Compare squared distances (avoids sqrt)
+                        if (distSq < radiusSq && distSq > 0) {
+                            // Only compute sqrt when we actually need this neighbor
+                            const dist = Math.sqrt(distSq);
+                            if (!isInFOV(boid, dx, dy, dist, boidSpeed)) continue;
+
+                            totalNeighbors++;
+                            const sameSpecies = boid.species === other.species;
+
+                            if (sameSpecies || !config.twoSpecies) {
+                                // Separation (quadratic falloff - use distSq directly)
+                                const sepStrength = 1 / distSq;
+                                sepX -= dx * sepStrength;
+                                sepY -= dy * sepStrength;
+                                sepCount++;
+
+                                // Alignment
+                                aliX += other.vx;
+                                aliY += other.vy;
+                                aliCount++;
+
+                                // Cohesion
+                                cohX += other.x;
+                                cohY += other.y;
+                                cohCount++;
+                            } else if (config.twoSpecies) {
+                                // Cross-species interactions (quadratic falloff)
+                                const sepStrength = 1 / distSq;
+                                crossSepX -= dx * sepStrength;
+                                crossSepY -= dy * sepStrength;
+                                crossSepCount++;
+
+                                crossCohX += other.x;
+                                crossCohY += other.y;
+                                crossCohCount++;
+                            }
+                        }
+                    }
+
+                    let ax = 0, ay = 0;
+
+                    // Apply separation
+                    if (sepCount > 0) {
+                        sepX /= sepCount;
+                        sepY /= sepCount;
+                        const sepMag = Math.sqrt(sepX * sepX + sepY * sepY);
+                        if (sepMag > 0) {
+                            sepX = (sepX / sepMag) * config.maxSpeed - boid.vx;
+                            sepY = (sepY / sepMag) * config.maxSpeed - boid.vy;
+                            const limited = limit(sepX, sepY, config.maxForce);
+                            ax += limited.x * config.separation;
+                            ay += limited.y * config.separation;
+                        }
+                    }
+
+                    // Apply alignment
+                    if (aliCount > 0) {
+                        aliX /= aliCount;
+                        aliY /= aliCount;
+                        const aliMag = Math.sqrt(aliX * aliX + aliY * aliY);
+                        if (aliMag > 0) {
+                            aliX = (aliX / aliMag) * config.maxSpeed - boid.vx;
+                            aliY = (aliY / aliMag) * config.maxSpeed - boid.vy;
+                            const limited = limit(aliX, aliY, config.maxForce);
+                            ax += limited.x * config.alignment;
+                            ay += limited.y * config.alignment;
+                        }
+                    }
+
+                    // Apply cohesion
+                    if (cohCount > 0) {
+                        cohX = cohX / cohCount - boid.x;
+                        cohY = cohY / cohCount - boid.y;
+                        const cohMag = Math.sqrt(cohX * cohX + cohY * cohY);
+                        if (cohMag > 0) {
+                            cohX = (cohX / cohMag) * config.maxSpeed - boid.vx;
+                            cohY = (cohY / cohMag) * config.maxSpeed - boid.vy;
+                            const limited = limit(cohX, cohY, config.maxForce);
+                            ax += limited.x * config.cohesion;
+                            ay += limited.y * config.cohesion;
+                        }
+                    }
+
+                    // Cross-species separation
+                    if (crossSepCount > 0 && config.twoSpecies) {
+                        crossSepX /= crossSepCount;
+                        crossSepY /= crossSepCount;
+                        const mag = Math.sqrt(crossSepX * crossSepX + crossSepY * crossSepY);
+                        if (mag > 0) {
+                            crossSepX = (crossSepX / mag) * config.maxSpeed - boid.vx;
+                            crossSepY = (crossSepY / mag) * config.maxSpeed - boid.vy;
+                            const limited = limit(crossSepX, crossSepY, config.maxForce);
+                            ax += limited.x * config.crossSeparation;
+                            ay += limited.y * config.crossSeparation;
+                        }
+                    }
+
+                    // Cross-species cohesion
+                    if (crossCohCount > 0 && config.twoSpecies && config.crossCohesion > 0) {
+                        crossCohX = crossCohX / crossCohCount - boid.x;
+                        crossCohY = crossCohY / crossCohCount - boid.y;
+                        const mag = Math.sqrt(crossCohX * crossCohX + crossCohY * crossCohY);
+                        if (mag > 0) {
+                            crossCohX = (crossCohX / mag) * config.maxSpeed - boid.vx;
+                            crossCohY = (crossCohY / mag) * config.maxSpeed - boid.vy;
+                            const limited = limit(crossCohX, crossCohY, config.maxForce);
+                            ax += limited.x * config.crossCohesion;
+                            ay += limited.y * config.crossCohesion;
+                        }
+                    }
+
+                    // Obstacle avoidance (strong quadratic falloff)
+                    if (config.obstaclesEnabled) {
+                        for (const obs of config.obstacles) {
+                            const dx = boid.x - obs.x;
+                            const dy = boid.y - obs.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            const avoidRadius = obs.r + 80;
+
+                            if (dist < avoidRadius && dist > 0) {
+                                const normDist = (avoidRadius - dist) / avoidRadius;
+                                const strength = normDist * normDist * 8;
+                                ax += (dx / dist) * config.maxForce * strength;
+                                ay += (dy / dist) * config.maxForce * strength;
+                            }
+                        }
+                    }
+
+                    // Leader attraction (autonomous boid)
+                    if (config.leaderMode === 'leader' || config.leaderMode === 'both') {
+                        if (leaderBoid) {
+                            const dx = leaderBoid.x - boid.x;
+                            const dy = leaderBoid.y - boid.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            if (dist > 30 && dist < 400) {
+                                const strength = 1.5 * (1 - dist / 400);
+                                ax += (dx / dist) * config.maxForce * strength;
+                                ay += (dy / dist) * config.maxForce * strength;
+                            }
+                        }
+                    }
+
+                    // Predator avoidance (autonomous boid, strong flee response)
+                    if (config.leaderMode === 'predator' || config.leaderMode === 'both') {
+                        if (predatorBoid) {
+                            const dx = boid.x - predatorBoid.x;
+                            const dy = boid.y - predatorBoid.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            if (dist < 200 && dist > 0) {
+                                const normDist = (200 - dist) / 200;
+                                const strength = normDist * normDist * 6;
+                                ax += (dx / dist) * config.maxForce * strength;
+                                ay += (dy / dist) * config.maxForce * strength;
+                            }
+                        }
+                    }
+
+                    // Update velocity
+                    let nvx = boid.vx + ax * dt;
+                    let nvy = boid.vy + ay * dt;
+                    const vel = limit(nvx, nvy, config.maxSpeed);
+                    nvx = vel.x;
+                    nvy = vel.y;
+
+                    // Update position
+                    let nx = boid.x + nvx * dt;
+                    let ny = boid.y + nvy * dt;
+
+                    // Boundary handling
+                    if (config.boundaryMode === 'wrap') {
+                        if (nx < 0) nx += config.width;
+                        if (nx >= config.width) nx -= config.width;
+                        if (ny < 0) ny += config.height;
+                        if (ny >= config.height) ny -= config.height;
+                    } else {
+                        if (nx < 0) { nx = 0; nvx = Math.abs(nvx); }
+                        if (nx >= config.width) { nx = config.width - 1; nvx = -Math.abs(nvx); }
+                        if (ny < 0) { ny = 0; nvy = Math.abs(nvy); }
+                        if (ny >= config.height) { ny = config.height - 1; nvy = -Math.abs(nvy); }
+                    }
+
+                    return {
+                        x: nx,
+                        y: ny,
+                        vx: nvx,
+                        vy: nvy,
+                        species: boid.species,
+                        neighborCount: sepCount + aliCount > 0 ? Math.max(sepCount, aliCount, cohCount) : 0
+                    };
+                });
+
+                boids = newBoids;
+
+                // Update special boids (leader and predator)
+                if (leaderBoid && (config.leaderMode === 'leader' || config.leaderMode === 'both')) {
+                    updateSpecialBoid(leaderBoid, dt);
+                }
+                if (predatorBoid && (config.leaderMode === 'predator' || config.leaderMode === 'both')) {
+                    updateSpecialBoid(predatorBoid, dt);
+                }
+
+                // Calculate stats
+                let totalSpeed = 0;
+                let totalNeighbors = 0;
+                let centroidX = 0, centroidY = 0;
+
+                for (const b of boids) {
+                    totalSpeed += Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                    totalNeighbors += b.neighborCount;
+                    centroidX += b.x;
+                    centroidY += b.y;
+                }
+
+                centroidX /= boids.length;
+                centroidY /= boids.length;
+
+                let compactness = 0;
+                for (const b of boids) {
+                    const dx = b.x - centroidX;
+                    const dy = b.y - centroidY;
+                    compactness += Math.sqrt(dx * dx + dy * dy);
+                }
+
+                // Use Float32Array for efficient transfer (5 values per boid: x, y, vx, vy, species)
+                const boidsData = new Float32Array(boids.length * 5);
+                for (let i = 0; i < boids.length; i++) {
+                    const b = boids[i];
+                    const offset = i * 5;
+                    boidsData[offset] = b.x;
+                    boidsData[offset + 1] = b.y;
+                    boidsData[offset + 2] = b.vx;
+                    boidsData[offset + 3] = b.vy;
+                    boidsData[offset + 4] = b.species;
+                }
+
+                return {
+                    boidsData: boidsData,
+                    boidCount: boids.length,
+                    leader: leaderBoid ? { x: leaderBoid.x, y: leaderBoid.y, vx: leaderBoid.vx, vy: leaderBoid.vy } : null,
+                    predator: predatorBoid ? { x: predatorBoid.x, y: predatorBoid.y, vx: predatorBoid.vx, vy: predatorBoid.vy } : null,
+                    stats: {
+                        avgSpeed: totalSpeed / boids.length,
+                        avgNeighbors: totalNeighbors / boids.length,
+                        compactness: compactness / boids.length
+                    }
+                };
+            }
+
+            self.onmessage = function(e) {
+                const { type, data } = e.data;
+
+                switch (type) {
+                    case 'init':
+                        config.width = data.width;
+                        config.height = data.height;
+                        initBoids(data.count);
+                        break;
+
+                    case 'config':
+                        const prevMode = config.leaderMode;
+                        Object.assign(config, data);
+                        updateFovThreshold();
+
+                        // Create/destroy special boids based on mode change
+                        if (config.leaderMode === 'leader' || config.leaderMode === 'both') {
+                            if (!leaderBoid) {
+                                leaderBoid = createSpecialBoid(
+                                    Math.random() * config.width,
+                                    Math.random() * config.height
+                                );
+                            }
+                        } else {
+                            leaderBoid = null;
+                        }
+
+                        if (config.leaderMode === 'predator' || config.leaderMode === 'both') {
+                            if (!predatorBoid) {
+                                predatorBoid = createSpecialBoid(
+                                    Math.random() * config.width,
+                                    Math.random() * config.height
+                                );
+                            }
+                        } else {
+                            predatorBoid = null;
+                        }
+                        break;
+
+                    case 'update':
+                        const result = updateBoids(data.dt);
+                        // Transfer the typed array buffer for zero-copy performance
+                        self.postMessage({ type: 'frame', data: result }, [result.boidsData.buffer]);
+                        break;
+
+                    case 'reset':
+                        initBoids(data.count);
+                        break;
+
+                    case 'spawn':
+                        for (let i = 0; i < data.count; i++) {
+                            const species = config.twoSpecies ? Math.floor(Math.random() * 2) : 0;
+                            boids.push(createBoid(
+                                data.x + (Math.random() - 0.5) * 30,
+                                data.y + (Math.random() - 0.5) * 30,
+                                species
+                            ));
+                        }
+                        break;
+
+                    case 'setSpecies':
+                        const half = Math.floor(boids.length / 2);
+                        for (let i = 0; i < boids.length; i++) {
+                            boids[i].species = i < half ? 0 : 1;
+                        }
+                        break;
+
+                    case 'attract':
+                        for (const b of boids) {
+                            const dx = data.x - b.x;
+                            const dy = data.y - b.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            if (dist < 200 && dist > 0) {
+                                const strength = data.strength * (200 - dist) / 200;
+                                b.vx += (dx / dist) * strength;
+                                b.vy += (dy / dist) * strength;
+                            }
+                        }
+                        break;
+                }
+            };
+        `;
+
+        // ============================================
+        // Main Thread Code
+        // ============================================
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const chartCanvas = document.getElementById('chart-canvas');
+        const chartCtx = chartCanvas.getContext('2d');
+
+        // Create worker
+        const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(workerBlob));
+
+        // State
+        let boids = [];
+        let trails = [];
+        let obstacles = [];
+        let paused = false;
+        let lastTime = 0;
+        let simUpdateCount = 0;
+        let lastUpsUpdate = 0;
+        let currentUps = 0;
+        let speedMultiplier = 1;
+        let workerBusy = false;
+        let pendingConfig = false;
+
+        // Chart data
+        const chartData = {
+            neighbors: [],
+            speed: [],
+            compactness: []
+        };
+        const chartVisible = { neighbors: true, speed: true, compactness: true };
+        const maxChartPoints = 120;
+
+        // Config
+        const config = {
+            separation: 1.5,
+            alignment: 1.0,
+            cohesion: 1.0,
+            neighborRadius: 50,
+            maxSpeed: 4,
+            maxForce: 0.3,
+            boidCount: 300,
+            perceptionCone: false,
+            fov: 270,
+            showCones: false,
+            obstaclesEnabled: false,
+            obstacleRadius: 30,
+            leaderMode: 'none',
+            twoSpecies: false,
+            crossSeparation: 2,
+            crossCohesion: 0,
+            spatialPartitioning: true,
+            showGrid: false,
+            theme: 'light',
+            trails: false,
+            trailLength: 20,
+            boundaryMode: 'wrap',
+            clickToSpawn: true,
+            simpleBoids: false
+        };
+
+        let leader = null;
+        let predator = null;
+        let mousePos = { x: 0, y: 0 };
+        let isShiftHeld = false;
+        let isCtrlHeld = false;
+        let isRightMouseDown = false;
+
+        // Resize canvas
+        let resizeTimeout = null;
+        let initialized = false;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            chartCanvas.width = chartCanvas.offsetWidth * 2;
+            chartCanvas.height = chartCanvas.offsetHeight * 2;
+
+            // Debounced update to worker with new dimensions
+            if (initialized) {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    updateWorkerConfig();
+                }, 100);
+            }
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        // Initialize simulation
+        function init() {
+            worker.postMessage({
+                type: 'init',
+                data: {
+                    width: canvas.width,
+                    height: canvas.height,
+                    count: config.boidCount
+                }
+            });
+            updateWorkerConfig();
+        }
+
+        function sendWorkerConfig() {
+            worker.postMessage({
+                type: 'config',
+                data: {
+                    separation: config.separation,
+                    alignment: config.alignment,
+                    cohesion: config.cohesion,
+                    neighborRadius: config.neighborRadius,
+                    maxSpeed: config.maxSpeed,
+                    maxForce: config.maxForce,
+                    perceptionCone: config.perceptionCone,
+                    fov: config.fov,
+                    obstacles: obstacles,
+                    obstaclesEnabled: config.obstaclesEnabled,
+                    leaderMode: config.leaderMode,
+                    twoSpecies: config.twoSpecies,
+                    crossSeparation: config.crossSeparation,
+                    crossCohesion: config.crossCohesion,
+                    spatialPartitioning: config.spatialPartitioning,
+                    boundaryMode: config.boundaryMode,
+                    width: canvas.width,
+                    height: canvas.height
+                }
+            });
+        }
+
+        function updateWorkerConfig() {
+            // If worker is busy, mark config as pending (will be sent after current frame)
+            if (workerBusy) {
+                pendingConfig = true;
+            } else {
+                sendWorkerConfig();
+            }
+        }
+
+        // Handle worker messages
+        worker.onmessage = function(e) {
+            if (e.data.type === 'frame') {
+                workerBusy = false;
+                simUpdateCount++;
+
+                // Parse typed array back to boid objects
+                const boidsData = e.data.data.boidsData;
+                const boidCount = e.data.data.boidCount;
+                boids = new Array(boidCount);
+                for (let i = 0; i < boidCount; i++) {
+                    const offset = i * 5;
+                    boids[i] = {
+                        x: boidsData[offset],
+                        y: boidsData[offset + 1],
+                        vx: boidsData[offset + 2],
+                        vy: boidsData[offset + 3],
+                        species: boidsData[offset + 4]
+                    };
+                }
+
+                leader = e.data.data.leader;
+                predator = e.data.data.predator;
+                const stats = e.data.data.stats;
+
+                // Apply pending config immediately after frame completes
+                if (pendingConfig) {
+                    sendWorkerConfig();
+                    pendingConfig = false;
+                }
+
+                // Update stats display
+                document.getElementById('stat-boids').textContent = boidCount;
+                document.getElementById('stat-speed').textContent = stats.avgSpeed.toFixed(1);
+                document.getElementById('stat-neighbors').textContent = stats.avgNeighbors.toFixed(1);
+
+                // Update chart data
+                chartData.neighbors.push(stats.avgNeighbors);
+                chartData.speed.push(stats.avgSpeed);
+                chartData.compactness.push(stats.compactness / 100);
+
+                if (chartData.neighbors.length > maxChartPoints) {
+                    chartData.neighbors.shift();
+                    chartData.speed.shift();
+                    chartData.compactness.shift();
+                }
+
+                // Update trails
+                if (config.trails) {
+                    if (trails.length === 0) {
+                        trails = boids.map(() => []);
+                    }
+                    for (let i = 0; i < boids.length && i < trails.length; i++) {
+                        const newPos = { x: boids[i].x, y: boids[i].y };
+                        // Detect edge wrap (large jump = wrapped)
+                        if (trails[i].length > 0) {
+                            const last = trails[i][trails[i].length - 1];
+                            const dx = Math.abs(newPos.x - last.x);
+                            const dy = Math.abs(newPos.y - last.y);
+                            if (dx > canvas.width / 2 || dy > canvas.height / 2) {
+                                // Boid wrapped - clear trail to prevent line across screen
+                                trails[i] = [];
+                            }
+                        }
+                        trails[i].push(newPos);
+                        if (trails[i].length > config.trailLength) {
+                            trails[i].shift();
+                        }
+                    }
+                }
+            }
+        };
+
+        // Get theme colors
+        function getThemeColor(varName) {
+            return getComputedStyle(document.body).getPropertyValue(varName).trim();
+        }
+
+        // Render
+        function render() {
+            const bgColor = getThemeColor('--bg-color');
+            const boidColor = getThemeColor('--boid-color');
+            const boidColorB = getThemeColor('--boid-color-b');
+            const obstacleColor = getThemeColor('--obstacle-color');
+            const leaderColor = getThemeColor('--leader-color');
+            const predatorColor = getThemeColor('--predator-color');
+
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid if enabled
+            if (config.showGrid && config.spatialPartitioning) {
+                const cellSize = Math.max(config.neighborRadius, 50);
+                ctx.strokeStyle = 'rgba(128, 128, 128, 0.2)';
+                ctx.lineWidth = 1;
+                for (let x = 0; x < canvas.width; x += cellSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, canvas.height);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < canvas.height; y += cellSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+                }
+            }
+
+            // Draw obstacles
+            if (config.obstaclesEnabled) {
+                ctx.fillStyle = obstacleColor;
+                for (const obs of obstacles) {
+                    ctx.beginPath();
+                    ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Draw trails
+            if (config.trails && trails.length > 0) {
+                for (let i = 0; i < trails.length && i < boids.length; i++) {
+                    const trail = trails[i];
+                    if (trail.length < 2) continue;
+
+                    const color = config.twoSpecies && boids[i].species === 1 ? boidColorB : boidColor;
+
+                    for (let j = 1; j < trail.length; j++) {
+                        const alpha = j / trail.length * 0.5;
+                        ctx.strokeStyle = color;
+                        ctx.globalAlpha = alpha;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(trail[j - 1].x, trail[j - 1].y);
+                        ctx.lineTo(trail[j].x, trail[j].y);
+                        ctx.stroke();
+                    }
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            // Draw perception cones if enabled (max 100 for performance)
+            if (config.perceptionCone && config.showCones) {
+                ctx.globalAlpha = 0.1;
+                ctx.fillStyle = boidColor;
+                const fovRad = (config.fov / 2) * Math.PI / 180;
+                const maxCones = Math.min(boids.length, 100);
+                for (let i = 0; i < maxCones; i++) {
+                    const boid = boids[i];
+                    const angle = Math.atan2(boid.vy, boid.vx);
+
+                    ctx.beginPath();
+                    ctx.moveTo(boid.x, boid.y);
+                    ctx.arc(boid.x, boid.y, config.neighborRadius, angle - fovRad, angle + fovRad);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            // Draw boids - simple mode for performance
+            if (config.simpleBoids) {
+                // Fast rendering: simple filled rectangles, no rotation
+                ctx.fillStyle = boidColor;
+                ctx.beginPath();
+                for (const boid of boids) {
+                    if (config.twoSpecies && boid.species === 1) continue;
+                    ctx.rect(boid.x - 2, boid.y - 2, 4, 4);
+                }
+                ctx.fill();
+
+                if (config.twoSpecies) {
+                    ctx.fillStyle = boidColorB;
+                    ctx.beginPath();
+                    for (const boid of boids) {
+                        if (boid.species !== 1) continue;
+                        ctx.rect(boid.x - 2, boid.y - 2, 4, 4);
+                    }
+                    ctx.fill();
+                }
+            } else {
+                // Normal rendering: batched rotated triangles (no save/restore)
+                const size = 6;
+                const tip = size;
+                const backX = -size * 0.6;
+                const backY = size * 0.5;
+                const notchX = -size * 0.3;
+
+                // Batch species A boids
+                ctx.fillStyle = boidColor;
+                ctx.beginPath();
+                for (const boid of boids) {
+                    if (config.twoSpecies && boid.species === 1) continue;
+
+                    // Compute rotation inline (avoid atan2 when possible using velocity directly)
+                    const speed = Math.sqrt(boid.vx * boid.vx + boid.vy * boid.vy);
+                    const cos = speed > 0 ? boid.vx / speed : 1;
+                    const sin = speed > 0 ? boid.vy / speed : 0;
+
+                    // Transform vertices: rotated by (cos, sin) and translated to (x, y)
+                    // Point 1: tip (size, 0)
+                    const x1 = boid.x + tip * cos;
+                    const y1 = boid.y + tip * sin;
+                    // Point 2: back-top (backX, -backY)
+                    const x2 = boid.x + backX * cos - (-backY) * sin;
+                    const y2 = boid.y + backX * sin + (-backY) * cos;
+                    // Point 3: notch (notchX, 0)
+                    const x3 = boid.x + notchX * cos;
+                    const y3 = boid.y + notchX * sin;
+                    // Point 4: back-bottom (backX, backY)
+                    const x4 = boid.x + backX * cos - backY * sin;
+                    const y4 = boid.y + backX * sin + backY * cos;
+
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.lineTo(x3, y3);
+                    ctx.lineTo(x4, y4);
+                    ctx.closePath();
+                }
+                ctx.fill();
+
+                // Batch species B boids if enabled
+                if (config.twoSpecies) {
+                    ctx.fillStyle = boidColorB;
+                    ctx.beginPath();
+                    for (const boid of boids) {
+                        if (boid.species !== 1) continue;
+
+                        const speed = Math.sqrt(boid.vx * boid.vx + boid.vy * boid.vy);
+                        const cos = speed > 0 ? boid.vx / speed : 1;
+                        const sin = speed > 0 ? boid.vy / speed : 0;
+
+                        const x1 = boid.x + tip * cos;
+                        const y1 = boid.y + tip * sin;
+                        const x2 = boid.x + backX * cos - (-backY) * sin;
+                        const y2 = boid.y + backX * sin + (-backY) * cos;
+                        const x3 = boid.x + notchX * cos;
+                        const y3 = boid.y + notchX * sin;
+                        const x4 = boid.x + backX * cos - backY * sin;
+                        const y4 = boid.y + backX * sin + backY * cos;
+
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.lineTo(x3, y3);
+                        ctx.lineTo(x4, y4);
+                        ctx.closePath();
+                    }
+                    ctx.fill();
+                }
+            }
+
+            // Draw leader (autonomous boid with direction)
+            if (leader && (config.leaderMode === 'leader' || config.leaderMode === 'both')) {
+                const angle = Math.atan2(leader.vy || 0, leader.vx || 1);
+                ctx.save();
+                ctx.translate(leader.x, leader.y);
+                ctx.rotate(angle);
+
+                // Glow effect
+                if (config.theme === 'neon') {
+                    ctx.shadowColor = leaderColor;
+                    ctx.shadowBlur = 20;
+                }
+
+                // Larger triangle boid shape
+                ctx.fillStyle = leaderColor;
+                ctx.beginPath();
+                ctx.moveTo(14, 0);
+                ctx.lineTo(-10, -8);
+                ctx.lineTo(-5, 0);
+                ctx.lineTo(-10, 8);
+                ctx.closePath();
+                ctx.fill();
+
+                // Crown/star indicator
+                ctx.fillStyle = leaderColor;
+                ctx.beginPath();
+                ctx.arc(0, -12, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            // Draw predator (autonomous boid with direction)
+            if (predator && (config.leaderMode === 'predator' || config.leaderMode === 'both')) {
+                const angle = Math.atan2(predator.vy || 0, predator.vx || 1);
+                ctx.save();
+                ctx.translate(predator.x, predator.y);
+                ctx.rotate(angle);
+
+                if (config.theme === 'neon') {
+                    ctx.shadowColor = predatorColor;
+                    ctx.shadowBlur = 20;
+                }
+
+                // Aggressive angular shape
+                ctx.fillStyle = predatorColor;
+                ctx.beginPath();
+                ctx.moveTo(16, 0);
+                ctx.lineTo(-8, -10);
+                ctx.lineTo(-4, 0);
+                ctx.lineTo(-8, 10);
+                ctx.closePath();
+                ctx.fill();
+
+                // Danger spikes
+                ctx.beginPath();
+                ctx.moveTo(-4, -6);
+                ctx.lineTo(-12, -10);
+                ctx.lineTo(-6, -4);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(-4, 6);
+                ctx.lineTo(-12, 10);
+                ctx.lineTo(-6, 4);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            // Draw chart
+            drawChart();
+        }
+
+        function drawChart() {
+            const w = chartCanvas.width;
+            const h = chartCanvas.height;
+
+            chartCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            chartCtx.fillRect(0, 0, w, h);
+
+            const colors = {
+                neighbors: getThemeColor('--chart-line-1'),
+                speed: getThemeColor('--chart-line-2'),
+                compactness: getThemeColor('--chart-line-3')
+            };
+
+            const maxVals = {
+                neighbors: 30,
+                speed: config.maxSpeed * 1.5,
+                compactness: 5
+            };
+
+            for (const metric of ['neighbors', 'speed', 'compactness']) {
+                if (!chartVisible[metric]) continue;
+                const data = chartData[metric];
+                if (data.length < 2) continue;
+
+                chartCtx.strokeStyle = colors[metric];
+                chartCtx.lineWidth = 2;
+                chartCtx.beginPath();
+
+                for (let i = 0; i < data.length; i++) {
+                    const x = (i / maxChartPoints) * w;
+                    const y = h - (data[i] / maxVals[metric]) * h;
+
+                    if (i === 0) {
+                        chartCtx.moveTo(x, Math.max(0, Math.min(h, y)));
+                    } else {
+                        chartCtx.lineTo(x, Math.max(0, Math.min(h, y)));
+                    }
+                }
+
+                chartCtx.stroke();
+            }
+        }
+
+        // Main loop
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1) * speedMultiplier;
+            lastTime = timestamp;
+
+            // UPS calculation (simulation updates per second from worker)
+            if (timestamp - lastUpsUpdate > 500) {
+                currentUps = Math.round(simUpdateCount * 1000 / (timestamp - lastUpsUpdate));
+                document.getElementById('stat-fps').textContent = currentUps;
+                document.getElementById('stat-fps-quick').textContent = currentUps;
+                simUpdateCount = 0;
+                lastUpsUpdate = timestamp;
+            }
+
+            // Only request new frame if worker isn't busy (prevents queue buildup)
+            if (!workerBusy && !paused) {
+                // Handle mouse attract/repel
+                if (isShiftHeld || isCtrlHeld) {
+                    worker.postMessage({
+                        type: 'attract',
+                        data: {
+                            x: mousePos.x,
+                            y: mousePos.y,
+                            strength: isShiftHeld ? 0.5 : -0.8
+                        }
+                    });
+                }
+
+                workerBusy = true;
+                worker.postMessage({ type: 'update', data: { dt: dt * 60 } });
+            }
+
+            render();
+            requestAnimationFrame(loop);
+        }
+
+        // ============================================
+        // UI Event Handlers
+        // ============================================
+
+        // Menu toggle
+        document.getElementById('menu-btn').addEventListener('click', () => {
+            document.getElementById('menu-dropdown').classList.toggle('open');
+            document.getElementById('stats-dropdown').classList.remove('open');
+        });
+
+        // Stats toggle
+        document.getElementById('stats-btn').addEventListener('click', () => {
+            const dropdown = document.getElementById('stats-dropdown');
+            dropdown.classList.toggle('open');
+            document.getElementById('menu-dropdown').classList.remove('open');
+            // Resize chart canvas when dropdown opens
+            if (dropdown.classList.contains('open')) {
+                setTimeout(() => {
+                    chartCanvas.width = chartCanvas.offsetWidth * 2;
+                    chartCanvas.height = chartCanvas.offsetHeight * 2;
+                }, 10);
+            }
+        });
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('menu-dropdown');
+            const menuBtn = document.getElementById('menu-btn');
+            const stats = document.getElementById('stats-dropdown');
+            const statsBtn = document.getElementById('stats-btn');
+            if (!menu.contains(e.target) && !menuBtn.contains(e.target)) {
+                menu.classList.remove('open');
+            }
+            if (!stats.contains(e.target) && !statsBtn.contains(e.target)) {
+                stats.classList.remove('open');
+            }
+        });
+
+        // Pause/Resume
+        document.getElementById('btn-pause').addEventListener('click', () => {
+            paused = !paused;
+            document.getElementById('btn-pause').textContent = paused ? '▶ Resume' : '⏸ Pause';
+            document.getElementById('pause-overlay').classList.toggle('visible', paused);
+        });
+
+        // Reset
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            trails = [];
+            workerBusy = false;
+            pendingConfig = false;
+            worker.postMessage({ type: 'reset', data: { count: config.boidCount } });
+        });
+
+        // Speed multiplier
+        document.getElementById('speed-mult').addEventListener('input', (e) => {
+            speedMultiplier = parseFloat(e.target.value);
+            document.getElementById('speed-mult-val').textContent = speedMultiplier + 'x';
+        });
+
+        // Parameter sliders
+        const paramMappings = [
+            { id: 'param-separation', key: 'separation', valId: 'val-separation', decimals: 1 },
+            { id: 'param-alignment', key: 'alignment', valId: 'val-alignment', decimals: 1 },
+            { id: 'param-cohesion', key: 'cohesion', valId: 'val-cohesion', decimals: 1 },
+            { id: 'param-radius', key: 'neighborRadius', valId: 'val-radius', decimals: 0 },
+            { id: 'param-maxspeed', key: 'maxSpeed', valId: 'val-maxspeed', decimals: 1 },
+            { id: 'param-maxforce', key: 'maxForce', valId: 'val-maxforce', decimals: 2 },
+            { id: 'param-fov', key: 'fov', valId: 'val-fov', decimals: 0, suffix: '°' },
+            { id: 'param-obstacle-radius', key: 'obstacleRadius', valId: 'val-obstacle-radius', decimals: 0 },
+            { id: 'param-cross-sep', key: 'crossSeparation', valId: 'val-cross-sep', decimals: 1 },
+            { id: 'param-cross-coh', key: 'crossCohesion', valId: 'val-cross-coh', decimals: 1 },
+            { id: 'param-trail-length', key: 'trailLength', valId: 'val-trail-length', decimals: 0 }
+        ];
+
+        paramMappings.forEach(({ id, key, valId, decimals, suffix = '' }) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', (e) => {
+                config[key] = parseFloat(e.target.value);
+                document.getElementById(valId).textContent = config[key].toFixed(decimals) + suffix;
+                updateWorkerConfig();
+            });
+        });
+
+        // Boid count (special handling - triggers reset)
+        document.getElementById('param-count').addEventListener('input', (e) => {
+            config.boidCount = parseInt(e.target.value);
+            document.getElementById('val-count').textContent = config.boidCount;
+        });
+
+        document.getElementById('param-count').addEventListener('change', (e) => {
+            trails = [];
+            workerBusy = false;
+            pendingConfig = false;
+            worker.postMessage({ type: 'reset', data: { count: config.boidCount } });
+        });
+
+        // Presets
+        const presets = {
+            schooling: { separation: 1.0, alignment: 2.5, cohesion: 1.5, neighborRadius: 75, maxSpeed: 3 },
+            chaotic: { separation: 2.0, alignment: 0.3, cohesion: 0.3, neighborRadius: 30, maxSpeed: 6 },
+            cluster: { separation: 1.2, alignment: 1.0, cohesion: 3.0, neighborRadius: 100, maxSpeed: 2 }
+        };
+
+        function applyPreset(name) {
+            const preset = presets[name];
+            Object.assign(config, preset);
+
+            // Update UI
+            document.getElementById('param-separation').value = preset.separation;
+            document.getElementById('val-separation').textContent = preset.separation.toFixed(1);
+            document.getElementById('param-alignment').value = preset.alignment;
+            document.getElementById('val-alignment').textContent = preset.alignment.toFixed(1);
+            document.getElementById('param-cohesion').value = preset.cohesion;
+            document.getElementById('val-cohesion').textContent = preset.cohesion.toFixed(1);
+            document.getElementById('param-radius').value = preset.neighborRadius;
+            document.getElementById('val-radius').textContent = preset.neighborRadius;
+            document.getElementById('param-maxspeed').value = preset.maxSpeed;
+            document.getElementById('val-maxspeed').textContent = preset.maxSpeed.toFixed(1);
+
+            updateWorkerConfig();
+        }
+
+        document.getElementById('preset-schooling').addEventListener('click', () => applyPreset('schooling'));
+        document.getElementById('preset-chaotic').addEventListener('click', () => applyPreset('chaotic'));
+        document.getElementById('preset-cluster').addEventListener('click', () => applyPreset('cluster'));
+
+        // Feature toggles
+        document.getElementById('feat-perception').addEventListener('change', (e) => {
+            config.perceptionCone = e.target.checked;
+            document.getElementById('perception-controls').style.display = e.target.checked ? 'block' : 'none';
+            updateWorkerConfig();
+        });
+
+        document.getElementById('feat-show-cones').addEventListener('change', (e) => {
+            config.showCones = e.target.checked;
+        });
+
+        document.getElementById('feat-obstacles').addEventListener('change', (e) => {
+            config.obstaclesEnabled = e.target.checked;
+            document.getElementById('obstacle-controls').style.display = e.target.checked ? 'block' : 'none';
+            updateWorkerConfig();
+        });
+
+        document.getElementById('param-obstacle-count').addEventListener('input', (e) => {
+            document.getElementById('val-obstacle-count').textContent = e.target.value;
+        });
+
+        document.getElementById('btn-spawn-obstacles').addEventListener('click', () => {
+            const count = parseInt(document.getElementById('param-obstacle-count').value);
+            const radius = config.obstacleRadius;
+            const padding = radius + 50;
+
+            for (let i = 0; i < count; i++) {
+                const x = padding + Math.random() * (canvas.width - padding * 2);
+                const y = padding + Math.random() * (canvas.height - padding * 2);
+                obstacles.push({ x, y, r: radius });
+            }
+            updateWorkerConfig();
+        });
+
+        document.getElementById('btn-clear-obstacles').addEventListener('click', () => {
+            obstacles = [];
+            updateWorkerConfig();
+        });
+
+        document.getElementById('feat-leader-mode').addEventListener('change', (e) => {
+            config.leaderMode = e.target.value;
+            // Leader and predator are now autonomous boids managed by the worker
+            updateWorkerConfig();
+        });
+
+        document.getElementById('feat-species').addEventListener('change', (e) => {
+            config.twoSpecies = e.target.checked;
+            document.getElementById('species-controls').style.display = e.target.checked ? 'block' : 'none';
+            if (e.target.checked) {
+                worker.postMessage({ type: 'setSpecies' });
+            }
+            updateWorkerConfig();
+        });
+
+        document.getElementById('feat-spatial').addEventListener('change', (e) => {
+            config.spatialPartitioning = e.target.checked;
+            updateWorkerConfig();
+        });
+
+        document.getElementById('feat-show-grid').addEventListener('change', (e) => {
+            config.showGrid = e.target.checked;
+        });
+
+        document.getElementById('feat-click-spawn').addEventListener('change', (e) => {
+            config.clickToSpawn = e.target.checked;
+        });
+
+        document.getElementById('feat-trails').addEventListener('change', (e) => {
+            config.trails = e.target.checked;
+            document.getElementById('trail-controls').style.display = e.target.checked ? 'block' : 'none';
+            if (!e.target.checked) trails = [];
+        });
+
+        document.getElementById('feat-simple-boids').addEventListener('change', (e) => {
+            config.simpleBoids = e.target.checked;
+        });
+
+        // Theme
+        document.getElementById('theme-select').addEventListener('change', (e) => {
+            config.theme = e.target.value;
+            document.body.className = e.target.value === 'light' ? '' : e.target.value;
+        });
+
+        // Boundary mode
+        document.getElementById('boundary-mode').addEventListener('change', (e) => {
+            config.boundaryMode = e.target.value;
+            document.getElementById('boundary-indicator').className = e.target.value;
+            updateWorkerConfig();
+        });
+
+        // Chart legend toggles
+        document.querySelectorAll('.legend-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const metric = item.dataset.metric;
+                chartVisible[metric] = !chartVisible[metric];
+                item.classList.toggle('disabled', !chartVisible[metric]);
+            });
+        });
+
+        // Export/Import
+        document.getElementById('btn-export').addEventListener('click', () => {
+            const exportData = {
+                version: 1,
+                params: {
+                    separation: config.separation,
+                    alignment: config.alignment,
+                    cohesion: config.cohesion,
+                    neighborRadius: config.neighborRadius,
+                    maxSpeed: config.maxSpeed,
+                    maxForce: config.maxForce,
+                    boidCount: config.boidCount
+                },
+                features: {
+                    perceptionCone: config.perceptionCone,
+                    fov: config.fov,
+                    obstacles: config.obstaclesEnabled,
+                    leaderMode: config.leaderMode,
+                    heterogeneous: config.twoSpecies,
+                    crossSeparation: config.crossSeparation,
+                    crossCohesion: config.crossCohesion,
+                    spatialPartitioning: config.spatialPartitioning,
+                    clickToSpawn: config.clickToSpawn
+                },
+                visual: {
+                    theme: config.theme,
+                    trails: config.trails,
+                    trailLength: config.trailLength,
+                    boundaryMode: config.boundaryMode,
+                    simpleBoids: config.simpleBoids
+                }
+            };
+
+            const json = JSON.stringify(exportData);
+            const encoded = btoa(json);
+            const url = window.location.origin + window.location.pathname + '?preset=' + encoded;
+
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Preset URL copied to clipboard!');
+            }).catch(() => {
+                prompt('Copy this URL:', url);
+            });
+        });
+
+        document.getElementById('btn-import').addEventListener('click', () => {
+            const input = prompt('Paste preset JSON or URL:');
+            if (!input) return;
+
+            try {
+                let json = input;
+                if (input.includes('?preset=')) {
+                    const encoded = input.split('?preset=')[1];
+                    json = atob(encoded);
+                } else if (input.startsWith('ey')) {
+                    json = atob(input);
+                }
+
+                const data = JSON.parse(json);
+                applyImportedConfig(data);
+            } catch (e) {
+                alert('Invalid preset data');
+            }
+        });
+
+        function applyImportedConfig(data) {
+            if (data.params) {
+                Object.assign(config, data.params);
+                document.getElementById('param-separation').value = data.params.separation;
+                document.getElementById('val-separation').textContent = data.params.separation.toFixed(1);
+                document.getElementById('param-alignment').value = data.params.alignment;
+                document.getElementById('val-alignment').textContent = data.params.alignment.toFixed(1);
+                document.getElementById('param-cohesion').value = data.params.cohesion;
+                document.getElementById('val-cohesion').textContent = data.params.cohesion.toFixed(1);
+                document.getElementById('param-radius').value = data.params.neighborRadius;
+                document.getElementById('val-radius').textContent = data.params.neighborRadius;
+                document.getElementById('param-maxspeed').value = data.params.maxSpeed;
+                document.getElementById('val-maxspeed').textContent = data.params.maxSpeed.toFixed(1);
+                document.getElementById('param-maxforce').value = data.params.maxForce;
+                document.getElementById('val-maxforce').textContent = data.params.maxForce.toFixed(2);
+                document.getElementById('param-count').value = data.params.boidCount;
+                document.getElementById('val-count').textContent = data.params.boidCount;
+            }
+
+            if (data.features) {
+                config.perceptionCone = data.features.perceptionCone;
+                config.fov = data.features.fov;
+                config.obstaclesEnabled = data.features.obstacles;
+                config.leaderMode = data.features.leaderMode;
+                config.twoSpecies = data.features.heterogeneous;
+                config.crossSeparation = data.features.crossSeparation;
+                config.crossCohesion = data.features.crossCohesion;
+                config.spatialPartitioning = data.features.spatialPartitioning;
+                config.clickToSpawn = data.features.clickToSpawn !== false;
+
+                document.getElementById('feat-perception').checked = config.perceptionCone;
+                document.getElementById('feat-obstacles').checked = config.obstaclesEnabled;
+                document.getElementById('feat-leader-mode').value = config.leaderMode;
+                document.getElementById('feat-species').checked = config.twoSpecies;
+                document.getElementById('feat-spatial').checked = config.spatialPartitioning;
+                document.getElementById('feat-click-spawn').checked = config.clickToSpawn;
+            }
+
+            if (data.visual) {
+                config.theme = data.visual.theme;
+                config.trails = data.visual.trails;
+                config.trailLength = data.visual.trailLength;
+                config.boundaryMode = data.visual.boundaryMode;
+                config.simpleBoids = data.visual.simpleBoids || false;
+
+                document.getElementById('theme-select').value = config.theme;
+                document.body.className = config.theme === 'light' ? '' : config.theme;
+                document.getElementById('feat-trails').checked = config.trails;
+                document.getElementById('boundary-mode').value = config.boundaryMode;
+                document.getElementById('boundary-indicator').className = config.boundaryMode;
+                document.getElementById('feat-simple-boids').checked = config.simpleBoids;
+            }
+
+            trails = [];
+            workerBusy = false;
+            pendingConfig = false;
+            worker.postMessage({ type: 'reset', data: { count: config.boidCount } });
+            updateWorkerConfig();
+        }
+
+        // Check for preset in URL
+        function checkUrlPreset() {
+            const params = new URLSearchParams(window.location.search);
+            const preset = params.get('preset');
+            if (preset) {
+                try {
+                    const json = atob(preset);
+                    const data = JSON.parse(json);
+                    applyImportedConfig(data);
+                } catch (e) {
+                    console.error('Failed to load preset from URL');
+                }
+            }
+        }
+
+        // ============================================
+        // Mouse & Keyboard Events
+        // ============================================
+
+        canvas.addEventListener('mousemove', (e) => {
+            mousePos.x = e.clientX;
+            mousePos.y = e.clientY;
+
+            // Paint obstacles
+            if (isRightMouseDown && config.obstaclesEnabled) {
+                obstacles.push({ x: e.clientX, y: e.clientY, r: config.obstacleRadius });
+                updateWorkerConfig();
+            }
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (!config.clickToSpawn) return;
+            const count = e.shiftKey ? 50 : 10;
+            worker.postMessage({
+                type: 'spawn',
+                data: { x: e.clientX, y: e.clientY, count }
+            });
+        });
+
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 2) {
+                isRightMouseDown = true;
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (e.button === 2) {
+                isRightMouseDown = false;
+            }
+        });
+
+        canvas.addEventListener('dblclick', (e) => {
+            if (e.button === 2 || e.buttons === 2) {
+                obstacles = [];
+                updateWorkerConfig();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+            switch (e.key.toLowerCase()) {
+                case ' ':
+                    e.preventDefault();
+                    document.getElementById('btn-pause').click();
+                    break;
+                case 'r':
+                    document.getElementById('btn-reset').click();
+                    break;
+                case '1':
+                    applyPreset('schooling');
+                    break;
+                case '2':
+                    applyPreset('chaotic');
+                    break;
+                case '3':
+                    applyPreset('cluster');
+                    break;
+                case 'g':
+                    config.showGrid = !config.showGrid;
+                    document.getElementById('feat-show-grid').checked = config.showGrid;
+                    break;
+                case 't':
+                    config.trails = !config.trails;
+                    document.getElementById('feat-trails').checked = config.trails;
+                    document.getElementById('trail-controls').style.display = config.trails ? 'block' : 'none';
+                    if (!config.trails) trails = [];
+                    break;
+                case 's':
+                    config.simpleBoids = !config.simpleBoids;
+                    document.getElementById('feat-simple-boids').checked = config.simpleBoids;
+                    break;
+                case 'd':
+                    const themes = ['light', 'dark', 'neon', 'nature'];
+                    const currentIdx = themes.indexOf(config.theme);
+                    config.theme = themes[(currentIdx + 1) % themes.length];
+                    document.getElementById('theme-select').value = config.theme;
+                    document.body.className = config.theme === 'light' ? '' : config.theme;
+                    break;
+            }
+
+            if (e.key === 'Shift') isShiftHeld = true;
+            if (e.key === 'Control') isCtrlHeld = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Shift') isShiftHeld = false;
+            if (e.key === 'Control') isCtrlHeld = false;
+        });
+
+        // ============================================
+        // Initialize
+        // ============================================
+
+        checkUrlPreset();
+        init();
+        initialized = true;
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
