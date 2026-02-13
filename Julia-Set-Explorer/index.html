@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Julia Set Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0f;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .canvas-label {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 12px;
+            border-radius: 4px;
+            display: none;
+            z-index: 10;
+        }
+
+        .split-mode .canvas-label {
+            display: block;
+        }
+
+        canvas {
+            cursor: crosshair;
+        }
+
+        /* Coordinates display */
+        #coords-display {
+            position: fixed;
+            bottom: 80px;
+            left: 15px;
+            background: rgba(20, 20, 28, 0.9);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #aaa;
+            display: none;
+        }
+
+        #coords-display.visible {
+            display: block;
+        }
+
+        #coords-display .label {
+            color: #666;
+        }
+
+        #coords-display .value {
+            color: #6ec6ff;
+        }
+
+        /* Controls Dropdown */
+        #controls-toggle {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            width: 44px;
+            height: 44px;
+            background: rgba(30, 30, 40, 0.95);
+            border: 1px solid #444;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+            transition: all 0.2s;
+        }
+
+        #controls-toggle:hover {
+            background: rgba(50, 50, 65, 0.95);
+            border-color: #666;
+        }
+
+        #controls-toggle svg {
+            width: 24px;
+            height: 24px;
+            fill: #ccc;
+        }
+
+        #controls-panel {
+            position: fixed;
+            top: 70px;
+            right: 15px;
+            width: 340px;
+            max-height: calc(100vh - 140px);
+            background: rgba(20, 20, 28, 0.97);
+            border: 1px solid #333;
+            border-radius: 12px;
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        #controls-panel.open {
+            display: flex;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #333;
+            background: rgba(30, 30, 40, 0.5);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px 6px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #888;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab:hover {
+            color: #bbb;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .tab.active {
+            color: #6ec6ff;
+            border-bottom-color: #6ec6ff;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 16px;
+            overflow-y: auto;
+            max-height: calc(100vh - 240px);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Form Elements */
+        .control-group {
+            margin-bottom: 16px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #888;
+            margin-bottom: 6px;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+        }
+
+        select {
+            background: #1a1a24;
+            border: 1px solid #444;
+            color: #ddd;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        select:hover {
+            border-color: #666;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #6ec6ff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .slider-value {
+            display: inline-block;
+            min-width: 60px;
+            text-align: right;
+            font-size: 12px;
+            color: #6ec6ff;
+            font-family: monospace;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-row input {
+            flex: 1;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #2a5a8a;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #3a7ab0;
+        }
+
+        .btn-secondary {
+            background: #333;
+            color: #ddd;
+        }
+
+        .btn-secondary:hover {
+            background: #444;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 11px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* Presets Grid */
+        .presets-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .preset-card {
+            background: #1a1a24;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .preset-card:hover {
+            border-color: #6ec6ff;
+            background: #222230;
+        }
+
+        .preset-card.active {
+            border-color: #6ec6ff;
+            box-shadow: 0 0 10px rgba(110, 198, 255, 0.2);
+        }
+
+        .preset-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #ddd;
+            margin-bottom: 2px;
+        }
+
+        .preset-value {
+            font-size: 10px;
+            color: #6ec6ff;
+            font-family: monospace;
+            margin-bottom: 4px;
+        }
+
+        .preset-desc {
+            font-size: 10px;
+            color: #888;
+            line-height: 1.4;
+        }
+
+        /* Journey Controls */
+        .journey-controls {
+            background: #1a1a24;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+
+        .journey-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .journey-title {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .journey-progress {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            margin-top: 8px;
+            cursor: pointer;
+        }
+
+        .journey-progress-fill {
+            height: 100%;
+            background: #6ec6ff;
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        /* Toggle Switch */
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .toggle-label {
+            font-size: 12px;
+            color: #ddd;
+        }
+
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: #333;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toggle.active {
+            background: #2a5a8a;
+        }
+
+        .toggle::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .toggle.active::after {
+            left: 23px;
+        }
+
+        /* Color Scheme Preview */
+        .color-preview {
+            height: 20px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+
+        /* Gradient Editor */
+        .gradient-editor {
+            background: #1a1a24;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+
+        .gradient-bar {
+            height: 30px;
+            border-radius: 4px;
+            position: relative;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .gradient-stop {
+            position: absolute;
+            top: 100%;
+            width: 12px;
+            height: 12px;
+            background: #fff;
+            border: 2px solid #333;
+            border-radius: 50%;
+            transform: translate(-50%, -6px);
+            cursor: grab;
+        }
+
+        .gradient-stop.active {
+            border-color: #6ec6ff;
+        }
+
+        /* Info Panel */
+        #info-panel {
+            position: fixed;
+            bottom: 70px;
+            left: 15px;
+            width: 320px;
+            background: rgba(20, 20, 28, 0.97);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 16px;
+            display: none;
+            z-index: 999;
+        }
+
+        #info-panel.open {
+            display: block;
+        }
+
+        .info-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #6ec6ff;
+        }
+
+        .info-equation {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            background: #111;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .info-params {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .info-param {
+            background: #1a1a24;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .info-param-label {
+            color: #888;
+        }
+
+        .info-param-value {
+            color: #6ec6ff;
+            font-family: monospace;
+        }
+
+        .info-description {
+            font-size: 12px;
+            line-height: 1.5;
+            color: #aaa;
+        }
+
+        /* Bottom Bar */
+        #bottom-bar {
+            position: fixed;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(20, 20, 28, 0.97);
+            border: 1px solid #333;
+            border-radius: 25px;
+            padding: 8px 20px;
+            z-index: 1000;
+        }
+
+        .c-value-display {
+            font-family: monospace;
+            font-size: 12px;
+            color: #6ec6ff;
+            min-width: 180px;
+        }
+
+        .zoom-display {
+            font-family: monospace;
+            font-size: 11px;
+            color: #888;
+        }
+
+        .divider {
+            width: 1px;
+            height: 24px;
+            background: #444;
+        }
+
+        /* Iteration Overlay */
+        #iteration-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* Educational Mode Controls */
+        .edu-mode-options {
+            background: #1a1a24;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 8px;
+        }
+
+        /* Education Mode Active Indicator */
+        .edu-mode-active {
+            cursor: crosshair !important;
+        }
+
+        .edu-mode-active::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            border: 3px solid rgba(110, 198, 255, 0.5);
+            border-radius: 4px;
+            animation: edu-pulse 2s infinite;
+        }
+
+        @keyframes edu-pulse {
+            0%, 100% { border-color: rgba(110, 198, 255, 0.3); }
+            50% { border-color: rgba(110, 198, 255, 0.7); }
+        }
+
+        #edu-hint {
+            position: fixed;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(110, 198, 255, 0.9);
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: none;
+            z-index: 1000;
+            animation: bounce 1s infinite;
+        }
+
+        #edu-hint.visible {
+            display: block;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-5px); }
+        }
+
+        /* Export Progress */
+        .export-progress {
+            margin-top: 12px;
+            display: none;
+        }
+
+        .export-progress.active {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #6ec6ff;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Crosshair for split view */
+        .crosshair {
+            position: absolute;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .crosshair-h, .crosshair-v {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .crosshair-h {
+            width: 20px;
+            height: 1px;
+            left: -10px;
+            top: 0;
+        }
+
+        .crosshair-v {
+            width: 1px;
+            height: 20px;
+            left: 0;
+            top: -10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <div class="canvas-wrapper" id="wrapper-main">
+            <span class="canvas-label">Mandelbrot Set</span>
+            <canvas id="canvas-main"></canvas>
+            <div class="crosshair" id="crosshair" style="display: none;">
+                <div class="crosshair-h"></div>
+                <div class="crosshair-v"></div>
+            </div>
+        </div>
+        <div class="canvas-wrapper" id="wrapper-julia" style="display: none;">
+            <span class="canvas-label">Julia Set</span>
+            <canvas id="canvas-julia"></canvas>
+        </div>
+    </div>
+
+    <canvas id="iteration-overlay"></canvas>
+
+    <div id="coords-display">
+        <span class="label">Position: </span>
+        <span class="value" id="coord-pos">0 + 0i</span>
+    </div>
+
+    <button id="controls-toggle">
+        <svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+    </button>
+
+    <div id="controls-panel">
+        <div class="tabs">
+            <div class="tab active" data-tab="presets">Presets</div>
+            <div class="tab" data-tab="params">Params</div>
+            <div class="tab" data-tab="view">View</div>
+            <div class="tab" data-tab="edu">Edu</div>
+            <div class="tab" data-tab="export">Export</div>
+        </div>
+
+        <div class="tab-content active" id="tab-presets">
+            <div class="control-group">
+                <label>Fractal Type</label>
+                <select id="fractal-type">
+                    <option value="julia">Julia Set</option>
+                    <option value="mandelbrot">Mandelbrot Set</option>
+                    <option value="burning-ship">Burning Ship</option>
+                </select>
+            </div>
+            <div class="control-group" id="presets-container">
+                <label>Julia Set Presets</label>
+                <div class="presets-grid" id="presets-grid"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab-params">
+            <div class="control-group" id="c-controls">
+                <label>Real(c)</label>
+                <div class="slider-row">
+                    <input type="range" id="param-real" min="-2" max="2" step="0.001" value="-0.123">
+                    <span class="slider-value" id="param-real-value">-0.123</span>
+                </div>
+            </div>
+            <div class="control-group" id="c-controls-imag">
+                <label>Imag(c)</label>
+                <div class="slider-row">
+                    <input type="range" id="param-imag" min="-2" max="2" step="0.001" value="0.745">
+                    <span class="slider-value" id="param-imag-value">0.745</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Max Iterations</label>
+                <div class="slider-row">
+                    <input type="range" id="param-iterations" min="50" max="2000" step="50" value="500">
+                    <span class="slider-value" id="param-iterations-value">500</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Escape Radius</label>
+                <div class="slider-row">
+                    <input type="range" id="param-escape" min="2" max="100" step="1" value="4">
+                    <span class="slider-value" id="param-escape-value">4</span>
+                </div>
+            </div>
+
+            <div class="journey-controls">
+                <div class="journey-header">
+                    <span class="journey-title">Parameter Journey</span>
+                    <select id="journey-select" style="width: auto; padding: 4px 8px; font-size: 11px;">
+                        <option value="grand-tour">Grand Tour</option>
+                        <option value="spiral">Spiral Path</option>
+                        <option value="mandelbrot-edge">Mandelbrot Edge</option>
+                    </select>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary btn-small" id="journey-play">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        Play
+                    </button>
+                    <button class="btn btn-secondary btn-small" id="journey-stop">Stop</button>
+                </div>
+                <div class="journey-progress" id="journey-progress">
+                    <div class="journey-progress-fill" id="journey-progress-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab-view">
+            <div class="control-group">
+                <label>Color Scheme</label>
+                <select id="color-scheme">
+                    <option value="classic">Classic</option>
+                    <option value="fire">Fire</option>
+                    <option value="electric">Electric</option>
+                    <option value="monochrome">Monochrome</option>
+                    <option value="rainbow">Rainbow</option>
+                    <option value="twilight">Twilight</option>
+                    <option value="ocean">Ocean</option>
+                </select>
+                <div class="color-preview" id="color-preview"></div>
+            </div>
+            <div class="control-group">
+                <div class="toggle-row">
+                    <span class="toggle-label">Anti-aliasing (2x2)</span>
+                    <div class="toggle" id="aa-toggle"></div>
+                </div>
+            </div>
+            <div class="control-group">
+                <div class="toggle-row">
+                    <span class="toggle-label">Split View (Mandelbrot-Julia)</span>
+                    <div class="toggle" id="split-toggle"></div>
+                </div>
+            </div>
+            <div class="control-group">
+                <div class="toggle-row">
+                    <span class="toggle-label">Show Coordinates</span>
+                    <div class="toggle active" id="coords-toggle"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab-edu">
+            <div class="control-group">
+                <div class="toggle-row">
+                    <span class="toggle-label">Iteration Visualizer</span>
+                    <div class="toggle" id="edu-toggle"></div>
+                </div>
+            </div>
+            <div class="edu-mode-options" id="edu-options" style="display: none;">
+                <div class="control-group">
+                    <label>Display Mode</label>
+                    <select id="edu-mode">
+                        <option value="animated">Animated Dots</option>
+                        <option value="static">Static Lines</option>
+                        <option value="both">Both</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Animation Speed</label>
+                    <div class="slider-row">
+                        <input type="range" id="edu-speed" min="1" max="20" value="10">
+                        <span class="slider-value" id="edu-speed-value">10</span>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-small" id="edu-clear">Clear Paths</button>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab-export">
+            <div class="control-group">
+                <label>Export Resolution</label>
+                <select id="export-resolution">
+                    <option value="1">1x (Current)</option>
+                    <option value="2">2x</option>
+                    <option value="4" selected>4x</option>
+                    <option value="8">8x (High-res)</option>
+                </select>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" id="export-btn">Download Image</button>
+                <button class="btn btn-secondary" id="quick-save">Quick Save</button>
+            </div>
+            <div class="btn-group" style="margin-top: 8px;">
+                <button class="btn btn-secondary btn-small" id="copy-coords">Copy Coordinates</button>
+            </div>
+            <div class="export-progress" id="export-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="export-progress-fill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="info-panel">
+        <div class="info-title" id="info-title">Julia Set</div>
+        <div class="info-equation" id="info-equation">z<sub>n+1</sub> = z<sub>n</sub><sup>2</sup> + c</div>
+        <div class="info-params" id="info-params"></div>
+        <div class="info-description" id="info-description">
+            The Julia set is the boundary between points that escape to infinity and those that remain bounded under iteration. Each unique value of c produces a different Julia set with its own character.
+        </div>
+    </div>
+
+    <div id="edu-hint">Click anywhere to visualize iteration path</div>
+
+    <div id="bottom-bar">
+        <span class="c-value-display" id="c-display">c = -0.123 + 0.745i</span>
+        <div class="divider"></div>
+        <span class="zoom-display" id="zoom-display">Zoom: 1.0x</span>
+        <div class="divider"></div>
+        <button class="btn btn-secondary btn-small" id="reset-btn">Reset View</button>
+        <button class="btn btn-secondary btn-small" id="info-toggle">Info</button>
+    </div>
+
+    <!-- Vertex Shader -->
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec2 a_position;
+        varying vec2 v_uv;
+        void main() {
+            v_uv = a_position * 0.5 + 0.5;
+            gl_Position = vec4(a_position, 0.0, 1.0);
+        }
+    </script>
+
+    <!-- Fractal Fragment Shader -->
+    <script id="fractal-shader" type="x-shader/x-fragment">
+        precision highp float;
+
+        uniform vec2 u_resolution;
+        uniform vec2 u_center;
+        uniform float u_zoom;
+        uniform vec2 u_c;
+        uniform int u_maxIter;
+        uniform float u_escapeRadius;
+        uniform int u_fractalType; // 0=Julia, 1=Mandelbrot, 2=Burning Ship
+        uniform int u_colorScheme;
+        uniform bool u_antiAlias;
+
+        varying vec2 v_uv;
+
+        vec3 hsv2rgb(vec3 c) {
+            vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+            vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+            return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+        }
+
+        vec3 getColor(float t, int scheme) {
+            if (t < 0.0) return vec3(0.0); // Inside set
+
+            // Normalize t to 0-1 range
+            t = fract(t * 0.1);
+
+            if (scheme == 0) { // Classic
+                vec3 c1 = vec3(0.0, 0.02, 0.1);
+                vec3 c2 = vec3(0.0, 0.3, 0.6);
+                vec3 c3 = vec3(1.0, 0.85, 0.4);
+                vec3 c4 = vec3(0.0, 0.02, 0.1);
+                if (t < 0.33) return mix(c1, c2, t * 3.0);
+                if (t < 0.66) return mix(c2, c3, (t - 0.33) * 3.0);
+                return mix(c3, c4, (t - 0.66) * 3.0);
+            }
+            else if (scheme == 1) { // Fire
+                vec3 c1 = vec3(0.0, 0.0, 0.0);
+                vec3 c2 = vec3(0.5, 0.0, 0.0);
+                vec3 c3 = vec3(1.0, 0.5, 0.0);
+                vec3 c4 = vec3(1.0, 1.0, 0.5);
+                if (t < 0.33) return mix(c1, c2, t * 3.0);
+                if (t < 0.66) return mix(c2, c3, (t - 0.33) * 3.0);
+                return mix(c3, c4, (t - 0.66) * 3.0);
+            }
+            else if (scheme == 2) { // Electric
+                vec3 c1 = vec3(0.1, 0.0, 0.2);
+                vec3 c2 = vec3(0.2, 0.0, 0.5);
+                vec3 c3 = vec3(0.0, 0.5, 1.0);
+                vec3 c4 = vec3(1.0, 1.0, 1.0);
+                if (t < 0.33) return mix(c1, c2, t * 3.0);
+                if (t < 0.66) return mix(c2, c3, (t - 0.33) * 3.0);
+                return mix(c3, c4, (t - 0.66) * 3.0);
+            }
+            else if (scheme == 3) { // Monochrome
+                return vec3(t);
+            }
+            else if (scheme == 4) { // Rainbow
+                return hsv2rgb(vec3(t, 0.8, 0.9));
+            }
+            else if (scheme == 5) { // Twilight
+                vec3 c1 = vec3(0.2, 0.0, 0.3);
+                vec3 c2 = vec3(0.8, 0.2, 0.5);
+                vec3 c3 = vec3(1.0, 0.6, 0.3);
+                if (t < 0.5) return mix(c1, c2, t * 2.0);
+                return mix(c2, c3, (t - 0.5) * 2.0);
+            }
+            else { // Ocean
+                vec3 c1 = vec3(0.0, 0.05, 0.15);
+                vec3 c2 = vec3(0.0, 0.3, 0.5);
+                vec3 c3 = vec3(0.4, 0.8, 0.9);
+                if (t < 0.5) return mix(c1, c2, t * 2.0);
+                return mix(c2, c3, (t - 0.5) * 2.0);
+            }
+        }
+
+        float iterate(vec2 z0, vec2 c) {
+            vec2 z = z0;
+            float escape2 = u_escapeRadius * u_escapeRadius;
+
+            for (int i = 0; i < 2000; i++) {
+                if (i >= u_maxIter) break;
+
+                float x2 = z.x * z.x;
+                float y2 = z.y * z.y;
+
+                if (x2 + y2 > escape2) {
+                    // Smooth coloring
+                    float log_zn = log(x2 + y2) / 2.0;
+                    float nu = log(log_zn / log(2.0)) / log(2.0);
+                    return float(i) + 1.0 - nu;
+                }
+
+                if (u_fractalType == 2) {
+                    // Burning Ship: use absolute values
+                    z = vec2(abs(z.x), abs(z.y));
+                }
+
+                z = vec2(x2 - y2, 2.0 * z.x * z.y) + c;
+            }
+
+            return -1.0; // Inside set
+        }
+
+        vec3 renderPixel(vec2 uv) {
+            // Map UV to complex plane
+            float aspect = u_resolution.x / u_resolution.y;
+            vec2 pos = (uv - 0.5) * 2.0;
+            pos.x *= aspect;
+            pos = pos / u_zoom + u_center;
+
+            float iter;
+            if (u_fractalType == 1) {
+                // Mandelbrot: z0 = 0, c = pos
+                iter = iterate(vec2(0.0), pos);
+            } else {
+                // Julia or Burning Ship: z0 = pos, c = u_c
+                iter = iterate(pos, u_c);
+            }
+
+            return getColor(iter, u_colorScheme);
+        }
+
+        void main() {
+            vec3 color;
+
+            if (u_antiAlias) {
+                // 2x2 supersampling
+                vec2 texel = 1.0 / u_resolution;
+                color = renderPixel(v_uv + texel * vec2(-0.25, -0.25));
+                color += renderPixel(v_uv + texel * vec2(0.25, -0.25));
+                color += renderPixel(v_uv + texel * vec2(-0.25, 0.25));
+                color += renderPixel(v_uv + texel * vec2(0.25, 0.25));
+                color *= 0.25;
+            } else {
+                color = renderPixel(v_uv);
+            }
+
+            gl_FragColor = vec4(color, 1.0);
+        }
+    </script>
+
+    <script>
+        // Application State
+        const state = {
+            fractalType: 'julia', // 'julia', 'mandelbrot', 'burning-ship'
+            c: { real: -0.123, imag: 0.745 }, // Douady Rabbit
+            center: { x: 0, y: 0 },
+            zoom: 1.0,
+            maxIterations: 500,
+            escapeRadius: 4,
+            colorScheme: 0,
+            antiAlias: false,
+            splitView: false,
+            showCoords: true,
+            educationMode: false,
+            eduDisplayMode: 'both',
+            eduSpeed: 10,
+            journey: {
+                active: false,
+                progress: 0,
+                path: 'grand-tour'
+            },
+            iterationPaths: []
+        };
+
+        // Julia Set Presets
+        const presets = [
+            { name: 'Douady Rabbit', real: -0.123, imag: 0.745, desc: 'Three-lobed rabbit shape' },
+            { name: 'Dendrite', real: 0, imag: 1, desc: 'Tree-like branching' },
+            { name: 'San Marco', real: -0.75, imag: 0, desc: 'Dragon-like connected set' },
+            { name: 'Siegel Disk', real: -0.391, imag: -0.587, desc: 'Contains a Siegel disk' },
+            { name: 'Spiral', real: 0.285, imag: 0.01, desc: 'Infinite spiral arms' },
+            { name: 'Starfish', real: -0.4, imag: 0.6, desc: 'Five-armed star shape' },
+            { name: 'Lightning', real: -0.7, imag: 0.27015, desc: 'Electric discharge pattern' },
+            { name: 'Galaxy', real: 0.355, imag: 0.355, desc: 'Spiral galaxy structure' }
+        ];
+
+        // Journey paths through c-space
+        const journeyPaths = {
+            'grand-tour': [
+                { real: -0.123, imag: 0.745 },  // Rabbit
+                { real: 0, imag: 1 },           // Dendrite
+                { real: -0.75, imag: 0 },       // San Marco
+                { real: 0.285, imag: 0.01 },    // Spiral
+                { real: -0.4, imag: 0.6 },      // Starfish
+                { real: 0.355, imag: 0.355 },   // Galaxy
+                { real: -0.123, imag: 0.745 }   // Back to Rabbit
+            ],
+            'spiral': (() => {
+                const points = [];
+                for (let i = 0; i <= 100; i++) {
+                    const t = i / 100;
+                    const r = 0.3 + t * 0.4;
+                    const theta = t * Math.PI * 4;
+                    points.push({
+                        real: r * Math.cos(theta) - 0.5,
+                        imag: r * Math.sin(theta)
+                    });
+                }
+                return points;
+            })(),
+            'mandelbrot-edge': [
+                { real: -0.75, imag: 0.1 },
+                { real: -0.12, imag: 0.74 },
+                { real: 0.28, imag: 0.53 },
+                { real: -0.5, imag: 0.56 },
+                { real: -1.25, imag: 0.02 },
+                { real: -0.75, imag: 0.1 }
+            ]
+        };
+
+        // Color scheme gradients for preview
+        const colorGradients = {
+            classic: 'linear-gradient(90deg, #000319, #004d99, #ffd966, #000319)',
+            fire: 'linear-gradient(90deg, #000, #800000, #ff8000, #ffff80)',
+            electric: 'linear-gradient(90deg, #1a0033, #3300aa, #0088ff, #fff)',
+            monochrome: 'linear-gradient(90deg, #000, #fff)',
+            rainbow: 'linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)',
+            twilight: 'linear-gradient(90deg, #330066, #cc3388, #ff9944)',
+            ocean: 'linear-gradient(90deg, #000d26, #004d80, #66cce6)'
+        };
+
+        // WebGL Renderer
+        class FractalRenderer {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
+
+                if (!this.gl) {
+                    alert('WebGL not supported');
+                    return;
+                }
+
+                this.initShaders();
+                this.initBuffers();
+                this.resize();
+            }
+
+            initShaders() {
+                const gl = this.gl;
+
+                const vertexSource = document.getElementById('vertex-shader').textContent;
+                const fragmentSource = document.getElementById('fractal-shader').textContent;
+
+                const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+                gl.shaderSource(vertexShader, vertexSource);
+                gl.compileShader(vertexShader);
+
+                if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                    console.error('Vertex shader error:', gl.getShaderInfoLog(vertexShader));
+                }
+
+                const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+                gl.shaderSource(fragmentShader, fragmentSource);
+                gl.compileShader(fragmentShader);
+
+                if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                    console.error('Fragment shader error:', gl.getShaderInfoLog(fragmentShader));
+                }
+
+                this.program = gl.createProgram();
+                gl.attachShader(this.program, vertexShader);
+                gl.attachShader(this.program, fragmentShader);
+                gl.linkProgram(this.program);
+
+                if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
+                    console.error('Program link error:', gl.getProgramInfoLog(this.program));
+                }
+            }
+
+            initBuffers() {
+                const gl = this.gl;
+
+                const vertices = new Float32Array([
+                    -1, -1, 1, -1, -1, 1,
+                    -1, 1, 1, -1, 1, 1
+                ]);
+
+                this.vertexBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+            }
+
+            resize() {
+                const container = this.canvas.parentElement;
+                const maxSize = Math.min(window.innerWidth, window.innerHeight) - 100;
+
+                let width, height;
+                if (state.splitView) {
+                    width = Math.floor((window.innerWidth - 30) / 2);
+                    height = window.innerHeight - 100;
+                } else {
+                    width = height = Math.min(maxSize, 800);
+                }
+
+                this.canvas.width = width;
+                this.canvas.height = height;
+                this.canvas.style.width = width + 'px';
+                this.canvas.style.height = height + 'px';
+            }
+
+            render(overrideState = {}) {
+                const gl = this.gl;
+                const s = { ...state, ...overrideState };
+
+                gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+                gl.useProgram(this.program);
+
+                const posLoc = gl.getAttribLocation(this.program, 'a_position');
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+                gl.enableVertexAttribArray(posLoc);
+                gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+                // Set uniforms
+                gl.uniform2f(gl.getUniformLocation(this.program, 'u_resolution'),
+                    this.canvas.width, this.canvas.height);
+                gl.uniform2f(gl.getUniformLocation(this.program, 'u_center'),
+                    s.center.x, s.center.y);
+                gl.uniform1f(gl.getUniformLocation(this.program, 'u_zoom'), s.zoom);
+                gl.uniform2f(gl.getUniformLocation(this.program, 'u_c'), s.c.real, s.c.imag);
+                gl.uniform1i(gl.getUniformLocation(this.program, 'u_maxIter'), s.maxIterations);
+                gl.uniform1f(gl.getUniformLocation(this.program, 'u_escapeRadius'), s.escapeRadius);
+
+                const fractalTypes = { 'julia': 0, 'mandelbrot': 1, 'burning-ship': 2 };
+                gl.uniform1i(gl.getUniformLocation(this.program, 'u_fractalType'),
+                    fractalTypes[s.fractalType] || 0);
+                gl.uniform1i(gl.getUniformLocation(this.program, 'u_colorScheme'), s.colorScheme);
+                gl.uniform1i(gl.getUniformLocation(this.program, 'u_antiAlias'), s.antiAlias ? 1 : 0);
+
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+            }
+
+            exportImage(multiplier) {
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = this.canvas.width * multiplier;
+                exportCanvas.height = this.canvas.height * multiplier;
+                const ctx = exportCanvas.getContext('2d');
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(this.canvas, 0, 0, exportCanvas.width, exportCanvas.height);
+
+                return exportCanvas.toDataURL('image/png');
+            }
+        }
+
+        // Initialize renderers
+        let mainRenderer, juliaRenderer;
+        let iterationCanvas, iterationCtx;
+
+        function init() {
+            mainRenderer = new FractalRenderer(document.getElementById('canvas-main'));
+            juliaRenderer = new FractalRenderer(document.getElementById('canvas-julia'));
+
+            iterationCanvas = document.getElementById('iteration-overlay');
+            iterationCtx = iterationCanvas.getContext('2d');
+
+            setupUI();
+            setupEventListeners();
+            renderPresets();
+            updateColorPreview();
+            updateInfoPanel();
+            updateCDisplay();
+
+            render();
+        }
+
+        function render() {
+            if (state.splitView) {
+                // Mandelbrot on left, Julia on right
+                mainRenderer.render({ fractalType: 'mandelbrot' });
+                juliaRenderer.render({ fractalType: 'julia' });
+            } else {
+                mainRenderer.render();
+            }
+
+            if (state.educationMode) {
+                renderIterationPaths();
+            }
+        }
+
+        function setupUI() {
+            document.getElementById('param-real').value = state.c.real;
+            document.getElementById('param-real-value').textContent = state.c.real.toFixed(3);
+            document.getElementById('param-imag').value = state.c.imag;
+            document.getElementById('param-imag-value').textContent = state.c.imag.toFixed(3);
+            document.getElementById('param-iterations').value = state.maxIterations;
+            document.getElementById('param-iterations-value').textContent = state.maxIterations;
+
+            if (state.showCoords) {
+                document.getElementById('coords-display').classList.add('visible');
+            }
+        }
+
+        function setupEventListeners() {
+            // Controls toggle
+            document.getElementById('controls-toggle').addEventListener('click', () => {
+                document.getElementById('controls-panel').classList.toggle('open');
+            });
+
+            // Tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+                });
+            });
+
+            // Fractal type
+            document.getElementById('fractal-type').addEventListener('change', (e) => {
+                state.fractalType = e.target.value;
+                updateCControlsVisibility();
+                updatePresetsVisibility();
+                updateInfoPanel();
+                render();
+            });
+
+            // Parameter sliders
+            document.getElementById('param-real').addEventListener('input', (e) => {
+                state.c.real = parseFloat(e.target.value);
+                document.getElementById('param-real-value').textContent = state.c.real.toFixed(3);
+                updateCDisplay();
+                render();
+            });
+
+            document.getElementById('param-imag').addEventListener('input', (e) => {
+                state.c.imag = parseFloat(e.target.value);
+                document.getElementById('param-imag-value').textContent = state.c.imag.toFixed(3);
+                updateCDisplay();
+                render();
+            });
+
+            document.getElementById('param-iterations').addEventListener('input', (e) => {
+                state.maxIterations = parseInt(e.target.value);
+                document.getElementById('param-iterations-value').textContent = state.maxIterations;
+                render();
+            });
+
+            document.getElementById('param-escape').addEventListener('input', (e) => {
+                state.escapeRadius = parseFloat(e.target.value);
+                document.getElementById('param-escape-value').textContent = state.escapeRadius;
+                render();
+            });
+
+            // Color scheme
+            document.getElementById('color-scheme').addEventListener('change', (e) => {
+                const schemes = ['classic', 'fire', 'electric', 'monochrome', 'rainbow', 'twilight', 'ocean'];
+                state.colorScheme = schemes.indexOf(e.target.value);
+                updateColorPreview();
+                render();
+            });
+
+            // Toggles
+            document.getElementById('aa-toggle').addEventListener('click', function() {
+                this.classList.toggle('active');
+                state.antiAlias = this.classList.contains('active');
+                render();
+            });
+
+            document.getElementById('split-toggle').addEventListener('click', function() {
+                this.classList.toggle('active');
+                state.splitView = this.classList.contains('active');
+                toggleSplitView();
+            });
+
+            document.getElementById('coords-toggle').addEventListener('click', function() {
+                this.classList.toggle('active');
+                state.showCoords = this.classList.contains('active');
+                document.getElementById('coords-display').classList.toggle('visible', state.showCoords);
+            });
+
+            document.getElementById('edu-toggle').addEventListener('click', function() {
+                this.classList.toggle('active');
+                state.educationMode = this.classList.contains('active');
+                document.getElementById('edu-options').style.display = state.educationMode ? 'block' : 'none';
+                document.getElementById('edu-hint').classList.toggle('visible', state.educationMode);
+                document.getElementById('wrapper-main').classList.toggle('edu-mode-active', state.educationMode);
+                resizeIterationCanvas();
+            });
+
+            document.getElementById('edu-mode').addEventListener('change', (e) => {
+                state.eduDisplayMode = e.target.value;
+                renderIterationPaths();
+            });
+
+            document.getElementById('edu-speed').addEventListener('input', (e) => {
+                state.eduSpeed = parseInt(e.target.value);
+                document.getElementById('edu-speed-value').textContent = state.eduSpeed;
+            });
+
+            document.getElementById('edu-clear').addEventListener('click', () => {
+                state.iterationPaths = [];
+                renderIterationPaths();
+            });
+
+            // Canvas interactions
+            setupCanvasInteractions(mainRenderer.canvas, mainRenderer);
+
+            // Bottom bar
+            document.getElementById('reset-btn').addEventListener('click', resetView);
+            document.getElementById('info-toggle').addEventListener('click', () => {
+                document.getElementById('info-panel').classList.toggle('open');
+            });
+
+            // Journey controls
+            document.getElementById('journey-play').addEventListener('click', startJourney);
+            document.getElementById('journey-stop').addEventListener('click', stopJourney);
+            document.getElementById('journey-select').addEventListener('change', (e) => {
+                state.journey.path = e.target.value;
+            });
+
+            // Export
+            document.getElementById('export-btn').addEventListener('click', exportHighRes);
+            document.getElementById('quick-save').addEventListener('click', quickSave);
+            document.getElementById('copy-coords').addEventListener('click', copyCoordinates);
+
+            // Window resize
+            window.addEventListener('resize', () => {
+                mainRenderer.resize();
+                juliaRenderer.resize();
+                resizeIterationCanvas();
+                render();
+            });
+        }
+
+        function setupCanvasInteractions(canvas, renderer) {
+            let isDragging = false;
+            let lastMouse = { x: 0, y: 0 };
+            let lastPinchDist = 0;
+            let isPinching = false;
+
+            // Two-finger scroll for pan
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const aspect = canvas.width / canvas.height;
+
+                // Use deltaX and deltaY for panning
+                const dx = e.deltaX / canvas.width * 2 * aspect / state.zoom;
+                const dy = e.deltaY / canvas.height * 2 / state.zoom;
+
+                state.center.x += dx;
+                state.center.y -= dy;
+
+                render();
+            }, { passive: false });
+
+            // Pinch to zoom (touch events)
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    isPinching = true;
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+                } else if (e.touches.length === 1) {
+                    isDragging = true;
+                    lastMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            }, { passive: true });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const aspect = canvas.width / canvas.height;
+
+                if (e.touches.length === 2 && isPinching) {
+                    // Pinch zoom
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (lastPinchDist > 0) {
+                        const zoomFactor = dist / lastPinchDist;
+
+                        // Center of pinch
+                        const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                        const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                        const mouseX = (centerX - rect.left) / rect.width;
+                        const mouseY = 1 - (centerY - rect.top) / rect.height;
+
+                        const worldX = (mouseX - 0.5) * 2 * aspect / state.zoom + state.center.x;
+                        const worldY = (mouseY - 0.5) * 2 / state.zoom + state.center.y;
+
+                        state.zoom *= zoomFactor;
+
+                        state.center.x = worldX - (mouseX - 0.5) * 2 * aspect / state.zoom;
+                        state.center.y = worldY - (mouseY - 0.5) * 2 / state.zoom;
+
+                        updateZoomDisplay();
+                        render();
+                    }
+                    lastPinchDist = dist;
+                } else if (e.touches.length === 1 && isDragging) {
+                    // Single finger drag for pan
+                    const dx = (e.touches[0].clientX - lastMouse.x) / canvas.width * 2 * aspect / state.zoom;
+                    const dy = (e.touches[0].clientY - lastMouse.y) / canvas.height * 2 / state.zoom;
+
+                    state.center.x -= dx;
+                    state.center.y += dy;
+
+                    lastMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    render();
+                }
+            }, { passive: false });
+
+            canvas.addEventListener('touchend', () => {
+                isDragging = false;
+                isPinching = false;
+                lastPinchDist = 0;
+            });
+
+            canvas.addEventListener('mousedown', (e) => {
+                if (e.button === 0) {
+                    isDragging = true;
+                    lastMouse = { x: e.clientX, y: e.clientY };
+                    canvas.style.cursor = 'grabbing';
+                }
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left) / rect.width;
+                const mouseY = 1 - (e.clientY - rect.top) / rect.height;
+
+                const aspect = canvas.width / canvas.height;
+                const worldX = (mouseX - 0.5) * 2 * aspect / state.zoom + state.center.x;
+                const worldY = (mouseY - 0.5) * 2 / state.zoom + state.center.y;
+
+                updateCoordsDisplay(worldX, worldY);
+
+                // In split view, clicking Mandelbrot updates Julia c value
+                if (state.splitView && canvas === mainRenderer.canvas) {
+                    const crosshair = document.getElementById('crosshair');
+                    crosshair.style.left = (e.clientX - rect.left) + 'px';
+                    crosshair.style.top = (e.clientY - rect.top) + 'px';
+
+                    if (isDragging) {
+                        state.c.real = worldX;
+                        state.c.imag = worldY;
+                        updateCDisplay();
+                        updateSliders();
+                        juliaRenderer.render({ fractalType: 'julia' });
+                    }
+                }
+
+                if (isDragging && !state.splitView) {
+                    const dx = (e.clientX - lastMouse.x) / canvas.width * 2 * aspect / state.zoom;
+                    const dy = (e.clientY - lastMouse.y) / canvas.height * 2 / state.zoom;
+
+                    state.center.x -= dx;
+                    state.center.y += dy;
+
+                    lastMouse = { x: e.clientX, y: e.clientY };
+                    render();
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                isDragging = false;
+                canvas.style.cursor = 'crosshair';
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                isDragging = false;
+                canvas.style.cursor = 'crosshair';
+            });
+
+            // Education mode: click to show iteration path
+            canvas.addEventListener('click', (e) => {
+                if (!state.educationMode) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left) / rect.width;
+                const mouseY = 1 - (e.clientY - rect.top) / rect.height;
+
+                const aspect = canvas.width / canvas.height;
+                const worldX = (mouseX - 0.5) * 2 * aspect / state.zoom + state.center.x;
+                const worldY = (mouseY - 0.5) * 2 / state.zoom + state.center.y;
+
+                addIterationPath(worldX, worldY);
+            });
+
+            canvas.addEventListener('dblclick', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left) / rect.width;
+                const mouseY = 1 - (e.clientY - rect.top) / rect.height;
+
+                const aspect = canvas.width / canvas.height;
+                state.center.x = (mouseX - 0.5) * 2 * aspect / state.zoom + state.center.x;
+                state.center.y = (mouseY - 0.5) * 2 / state.zoom + state.center.y;
+                state.zoom *= 2;
+
+                updateZoomDisplay();
+                render();
+            });
+        }
+
+        function toggleSplitView() {
+            const container = document.getElementById('canvas-container');
+            const juliaWrapper = document.getElementById('wrapper-julia');
+            const crosshair = document.getElementById('crosshair');
+
+            if (state.splitView) {
+                container.classList.add('split-mode');
+                juliaWrapper.style.display = 'flex';
+                crosshair.style.display = 'block';
+            } else {
+                container.classList.remove('split-mode');
+                juliaWrapper.style.display = 'none';
+                crosshair.style.display = 'none';
+            }
+
+            mainRenderer.resize();
+            juliaRenderer.resize();
+            resizeIterationCanvas();
+            render();
+        }
+
+        function renderPresets() {
+            const grid = document.getElementById('presets-grid');
+            grid.innerHTML = '';
+
+            presets.forEach((preset, i) => {
+                const card = document.createElement('div');
+                card.className = 'preset-card';
+                card.innerHTML = `
+                    <div class="preset-name">${preset.name}</div>
+                    <div class="preset-value">c = ${preset.real} + ${preset.imag}i</div>
+                    <div class="preset-desc">${preset.desc}</div>
+                `;
+                card.addEventListener('click', () => applyPreset(preset));
+                grid.appendChild(card);
+            });
+        }
+
+        function applyPreset(preset) {
+            state.c.real = preset.real;
+            state.c.imag = preset.imag;
+            state.fractalType = 'julia';
+            document.getElementById('fractal-type').value = 'julia';
+
+            updateSliders();
+            updateCDisplay();
+            updateInfoPanel();
+            render();
+        }
+
+        function updateSliders() {
+            document.getElementById('param-real').value = state.c.real;
+            document.getElementById('param-real-value').textContent = state.c.real.toFixed(3);
+            document.getElementById('param-imag').value = state.c.imag;
+            document.getElementById('param-imag-value').textContent = state.c.imag.toFixed(3);
+        }
+
+        function updateCControlsVisibility() {
+            const show = state.fractalType === 'julia' || state.fractalType === 'burning-ship';
+            document.getElementById('c-controls').style.display = show ? 'block' : 'none';
+            document.getElementById('c-controls-imag').style.display = show ? 'block' : 'none';
+        }
+
+        function updatePresetsVisibility() {
+            const show = state.fractalType === 'julia';
+            document.getElementById('presets-container').style.display = show ? 'block' : 'none';
+        }
+
+        function updateCDisplay() {
+            const sign = state.c.imag >= 0 ? '+' : '';
+            document.getElementById('c-display').textContent =
+                `c = ${state.c.real.toFixed(3)} ${sign} ${state.c.imag.toFixed(3)}i`;
+        }
+
+        function updateZoomDisplay() {
+            document.getElementById('zoom-display').textContent = `Zoom: ${state.zoom.toFixed(1)}x`;
+        }
+
+        function updateCoordsDisplay(x, y) {
+            const sign = y >= 0 ? '+' : '';
+            document.getElementById('coord-pos').textContent = `${x.toFixed(4)} ${sign} ${y.toFixed(4)}i`;
+        }
+
+        function updateColorPreview() {
+            const schemes = ['classic', 'fire', 'electric', 'monochrome', 'rainbow', 'twilight', 'ocean'];
+            const scheme = schemes[state.colorScheme];
+            document.getElementById('color-preview').style.background = colorGradients[scheme];
+        }
+
+        function updateInfoPanel() {
+            const info = {
+                julia: {
+                    title: 'Julia Set',
+                    equation: 'z<sub>n+1</sub> = z<sub>n</sub><sup>2</sup> + c',
+                    desc: 'The Julia set is the boundary between points that escape to infinity and those that remain bounded under iteration. Each unique value of c produces a different Julia set. Discovered by Gaston Julia in 1918.'
+                },
+                mandelbrot: {
+                    title: 'Mandelbrot Set',
+                    equation: 'z<sub>n+1</sub> = z<sub>n</sub><sup>2</sup> + c, z<sub>0</sub> = 0',
+                    desc: 'The Mandelbrot set is the "map" of all Julia sets. Each point c in the Mandelbrot set corresponds to a connected Julia set. Popularized by Benoit Mandelbrot in 1980.'
+                },
+                'burning-ship': {
+                    title: 'Burning Ship Fractal',
+                    equation: 'z<sub>n+1</sub> = (|Re(z<sub>n</sub>)| + i|Im(z<sub>n</sub>)|)<sup>2</sup> + c',
+                    desc: 'The Burning Ship fractal uses absolute values before squaring, creating asymmetric, ship-like structures. Discovered by Michael Michelitsch and Otto E. Rössler in 1992.'
+                }
+            };
+
+            const data = info[state.fractalType];
+            document.getElementById('info-title').textContent = data.title;
+            document.getElementById('info-equation').innerHTML = data.equation;
+            document.getElementById('info-description').textContent = data.desc;
+
+            const paramsHtml = `
+                <div class="info-param">
+                    <span class="info-param-label">Re(c):</span>
+                    <span class="info-param-value">${state.c.real.toFixed(4)}</span>
+                </div>
+                <div class="info-param">
+                    <span class="info-param-label">Im(c):</span>
+                    <span class="info-param-value">${state.c.imag.toFixed(4)}</span>
+                </div>
+                <div class="info-param">
+                    <span class="info-param-label">Iterations:</span>
+                    <span class="info-param-value">${state.maxIterations}</span>
+                </div>
+                <div class="info-param">
+                    <span class="info-param-label">Zoom:</span>
+                    <span class="info-param-value">${state.zoom.toFixed(2)}x</span>
+                </div>
+            `;
+            document.getElementById('info-params').innerHTML = paramsHtml;
+        }
+
+        function resetView() {
+            state.center = { x: 0, y: 0 };
+            state.zoom = 1.0;
+            updateZoomDisplay();
+            render();
+        }
+
+        // Journey (parameter morphing)
+        function startJourney() {
+            state.journey.active = true;
+            state.journey.progress = 0;
+            state.fractalType = 'julia';
+            document.getElementById('fractal-type').value = 'julia';
+            updateCControlsVisibility();
+            animateJourney();
+        }
+
+        function stopJourney() {
+            state.journey.active = false;
+            document.getElementById('journey-progress-fill').style.width = '0%';
+        }
+
+        function animateJourney() {
+            if (!state.journey.active) return;
+
+            const path = journeyPaths[state.journey.path];
+            state.journey.progress += 0.002;
+
+            if (state.journey.progress >= 1) {
+                stopJourney();
+                return;
+            }
+
+            const totalSegments = path.length - 1;
+            const segment = Math.floor(state.journey.progress * totalSegments);
+            const localProgress = (state.journey.progress * totalSegments) % 1;
+
+            const start = path[Math.min(segment, path.length - 1)];
+            const end = path[Math.min(segment + 1, path.length - 1)];
+
+            state.c.real = start.real + (end.real - start.real) * localProgress;
+            state.c.imag = start.imag + (end.imag - start.imag) * localProgress;
+
+            updateSliders();
+            updateCDisplay();
+            document.getElementById('journey-progress-fill').style.width = (state.journey.progress * 100) + '%';
+
+            render();
+            requestAnimationFrame(animateJourney);
+        }
+
+        // Education mode: iteration paths
+        function resizeIterationCanvas() {
+            const mainCanvas = mainRenderer.canvas;
+            iterationCanvas.width = mainCanvas.width;
+            iterationCanvas.height = mainCanvas.height;
+            iterationCanvas.style.width = mainCanvas.style.width;
+            iterationCanvas.style.height = mainCanvas.style.height;
+            iterationCanvas.style.left = mainCanvas.offsetLeft + 'px';
+            iterationCanvas.style.top = mainCanvas.offsetTop + 'px';
+        }
+
+        function addIterationPath(x, y) {
+            // Hide the hint after first click
+            document.getElementById('edu-hint').classList.remove('visible');
+
+            const path = computeIterationPath(x, y);
+            state.iterationPaths.push({
+                points: path.points,
+                escaped: path.escaped,
+                startTime: Date.now()
+            });
+            renderIterationPaths();
+        }
+
+        function computeIterationPath(startX, startY) {
+            const points = [{ x: startX, y: startY }];
+            let zx = startX, zy = startY;
+            const escape2 = state.escapeRadius * state.escapeRadius;
+
+            for (let i = 0; i < state.maxIterations && i < 100; i++) {
+                let x2 = zx * zx;
+                let y2 = zy * zy;
+
+                if (x2 + y2 > escape2) {
+                    return { points, escaped: true };
+                }
+
+                if (state.fractalType === 'burning-ship') {
+                    zx = Math.abs(zx);
+                    zy = Math.abs(zy);
+                }
+
+                const newX = x2 - y2 + state.c.real;
+                const newY = 2 * zx * zy + state.c.imag;
+                zx = newX;
+                zy = newY;
+
+                points.push({ x: zx, y: zy });
+            }
+
+            return { points, escaped: false };
+        }
+
+        function worldToScreen(x, y) {
+            const canvas = mainRenderer.canvas;
+            const aspect = canvas.width / canvas.height;
+
+            const screenX = ((x - state.center.x) * state.zoom / (2 * aspect) + 0.5) * canvas.width;
+            const screenY = (1 - ((y - state.center.y) * state.zoom / 2 + 0.5)) * canvas.height;
+
+            return { x: screenX, y: screenY };
+        }
+
+        function renderIterationPaths() {
+            iterationCtx.clearRect(0, 0, iterationCanvas.width, iterationCanvas.height);
+
+            if (!state.educationMode) return;
+
+            const now = Date.now();
+
+            state.iterationPaths.forEach(path => {
+                const elapsed = now - path.startTime;
+                const animatedCount = Math.floor(elapsed / (100 / state.eduSpeed));
+
+                const showStatic = state.eduDisplayMode === 'static' || state.eduDisplayMode === 'both';
+                const showAnimated = state.eduDisplayMode === 'animated' || state.eduDisplayMode === 'both';
+
+                // Draw lines
+                if (showStatic || showAnimated) {
+                    const maxPoints = showAnimated ? Math.min(animatedCount, path.points.length) : path.points.length;
+
+                    iterationCtx.beginPath();
+                    for (let i = 0; i < maxPoints; i++) {
+                        const screen = worldToScreen(path.points[i].x, path.points[i].y);
+                        if (i === 0) {
+                            iterationCtx.moveTo(screen.x, screen.y);
+                        } else {
+                            iterationCtx.lineTo(screen.x, screen.y);
+                        }
+                    }
+                    iterationCtx.strokeStyle = path.escaped ? 'rgba(255, 100, 100, 0.7)' : 'rgba(100, 255, 100, 0.7)';
+                    iterationCtx.lineWidth = 1.5;
+                    iterationCtx.stroke();
+                }
+
+                // Draw points
+                if (showAnimated || showStatic) {
+                    const maxPoints = showAnimated ? Math.min(animatedCount + 1, path.points.length) : path.points.length;
+
+                    for (let i = 0; i < maxPoints; i++) {
+                        const screen = worldToScreen(path.points[i].x, path.points[i].y);
+                        const t = i / path.points.length;
+
+                        iterationCtx.beginPath();
+                        iterationCtx.arc(screen.x, screen.y, i === 0 ? 5 : 3, 0, Math.PI * 2);
+                        iterationCtx.fillStyle = `hsl(${t * 240}, 80%, 60%)`;
+                        iterationCtx.fill();
+                    }
+                }
+            });
+
+            if (state.eduDisplayMode === 'animated' || state.eduDisplayMode === 'both') {
+                requestAnimationFrame(() => renderIterationPaths());
+            }
+        }
+
+        // Export functions
+        function exportHighRes() {
+            const multiplier = parseInt(document.getElementById('export-resolution').value);
+            const progress = document.getElementById('export-progress');
+            const fill = document.getElementById('export-progress-fill');
+
+            progress.classList.add('active');
+            fill.style.width = '50%';
+
+            setTimeout(() => {
+                const dataUrl = mainRenderer.exportImage(multiplier);
+                fill.style.width = '100%';
+
+                setTimeout(() => {
+                    const link = document.createElement('a');
+                    const cStr = `${state.c.real.toFixed(3)}_${state.c.imag.toFixed(3)}`;
+                    link.download = `fractal-${state.fractalType}-c${cStr}-${Date.now()}.png`;
+                    link.href = dataUrl;
+                    link.click();
+
+                    progress.classList.remove('active');
+                    fill.style.width = '0%';
+                }, 300);
+            }, 100);
+        }
+
+        function quickSave() {
+            const dataUrl = mainRenderer.canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `fractal-${Date.now()}.png`;
+            link.href = dataUrl;
+            link.click();
+        }
+
+        function copyCoordinates() {
+            const coords = {
+                fractalType: state.fractalType,
+                c: state.c,
+                center: state.center,
+                zoom: state.zoom,
+                maxIterations: state.maxIterations
+            };
+            navigator.clipboard.writeText(JSON.stringify(coords, null, 2));
+            alert('Coordinates copied to clipboard!');
+        }
+
+        init();
+    </script>
+</body>
+</html>
