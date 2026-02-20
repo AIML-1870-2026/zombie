@@ -516,6 +516,31 @@
             font-size: 24px;
             font-weight: 700;
             margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-label {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .status-label.pass {
+            background: #22c55e;
+            color: #fff;
+        }
+
+        .status-label.warn {
+            background: #f59e0b;
+            color: #000;
+        }
+
+        .status-label.fail {
+            background: #ef4444;
+            color: #fff;
         }
 
         .contrast-badges {
@@ -810,6 +835,14 @@
                         <span class="value" id="zoom-value">1x</span>
                     </div>
                 </div>
+                <div class="settings-group">
+                    <label class="settings-label">Particle Count</label>
+                    <div class="slider-container">
+                        <span>10k</span>
+                        <input type="range" id="particle-slider" min="10000" max="250000" step="10000" value="50000">
+                        <span class="value" id="particle-value">50k</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1037,8 +1070,8 @@
         let frameCount = 0;
         let fps = 0;
 
-        const PARTICLE_COUNT = 60000;
-        const PARTICLES_PER_COLOR = Math.floor(PARTICLE_COUNT / 3);
+        let particleCount = 50000;
+        let particlesPerColor = Math.floor(particleCount / 3);
 
         // Typed arrays for better performance (x, y interleaved)
         let redPos, greenPos, bluePos;
@@ -1065,16 +1098,16 @@
             const height = canvasHeight;
 
             // Allocate typed arrays: [x0, y0, x1, y1, ...]
-            redPos = new Float32Array(PARTICLES_PER_COLOR * 2);
-            greenPos = new Float32Array(PARTICLES_PER_COLOR * 2);
-            bluePos = new Float32Array(PARTICLES_PER_COLOR * 2);
+            redPos = new Float32Array(particlesPerColor * 2);
+            greenPos = new Float32Array(particlesPerColor * 2);
+            bluePos = new Float32Array(particlesPerColor * 2);
 
-            redVel = new Float32Array(PARTICLES_PER_COLOR * 2);
-            greenVel = new Float32Array(PARTICLES_PER_COLOR * 2);
-            blueVel = new Float32Array(PARTICLES_PER_COLOR * 2);
+            redVel = new Float32Array(particlesPerColor * 2);
+            greenVel = new Float32Array(particlesPerColor * 2);
+            blueVel = new Float32Array(particlesPerColor * 2);
 
             // Initialize positions and velocities
-            for (let i = 0; i < PARTICLES_PER_COLOR; i++) {
+            for (let i = 0; i < particlesPerColor; i++) {
                 const idx = i * 2;
                 // Red
                 redPos[idx] = Math.random() * width;
@@ -1097,7 +1130,7 @@
         function updateParticles() {
             const width = canvasWidth;
             const height = canvasHeight;
-            const len = PARTICLES_PER_COLOR * 2;
+            const len = particlesPerColor * 2;
 
             // Update red particles
             for (let i = 0; i < len; i += 2) {
@@ -1133,7 +1166,7 @@
         function renderParticles() {
             const w = canvasWidth;
             const h = canvasHeight;
-            const len = PARTICLES_PER_COLOR * 2;
+            const len = particlesPerColor * 2;
             const zoom = zoomLevel;
             const centerX = w / 2;
             const centerY = h / 2;
@@ -1241,6 +1274,8 @@
         const blueValue = document.getElementById('blue-value');
         const zoomSlider = document.getElementById('zoom-slider');
         const zoomValue = document.getElementById('zoom-value');
+        const particleSlider = document.getElementById('particle-slider');
+        const particleValue = document.getElementById('particle-value');
 
         redSlider.addEventListener('input', () => {
             brightness.r = parseInt(redSlider.value);
@@ -1260,6 +1295,14 @@
         zoomSlider.addEventListener('input', () => {
             zoomLevel = parseFloat(zoomSlider.value);
             zoomValue.textContent = zoomLevel + 'x';
+        });
+
+        particleSlider.addEventListener('input', () => {
+            particleCount = parseInt(particleSlider.value);
+            particlesPerColor = Math.floor(particleCount / 3);
+            // Format display value (e.g., 50000 -> "50k", 150000 -> "150k")
+            particleValue.textContent = (particleCount / 1000) + 'k';
+            initParticles();
         });
 
         // Initialize particle system
@@ -1723,19 +1766,36 @@
         function updateContrastChecker() {
             const ratio = getContrastRatio(contrastFg, contrastBg);
             const ratioText = ratio.toFixed(2) + ':1';
-            contrastRatioEl.textContent = ratioText;
 
-            // Update badges
+            // Determine overall status
             const aaLarge = ratio >= 3;
             const aaNormal = ratio >= 4.5;
             const aaaLarge = ratio >= 4.5;
             const aaaNormal = ratio >= 7;
 
+            // Set overall status with color coding
+            let statusText, statusClass;
+            if (aaaNormal) {
+                statusText = 'AAA';
+                statusClass = 'pass';
+            } else if (aaNormal) {
+                statusText = 'AA';
+                statusClass = 'pass';
+            } else if (aaLarge) {
+                statusText = 'AA Large Only';
+                statusClass = 'warn';
+            } else {
+                statusText = 'Fail';
+                statusClass = 'fail';
+            }
+
+            contrastRatioEl.innerHTML = `${ratioText} <span class="status-label ${statusClass}">${statusText}</span>`;
+
             contrastBadgesEl.innerHTML = `
-                <span class="contrast-badge ${aaNormal ? 'pass' : 'fail'}">AA Normal</span>
-                <span class="contrast-badge ${aaLarge ? 'pass' : 'fail'}">AA Large</span>
-                <span class="contrast-badge ${aaaNormal ? 'pass' : 'fail'}">AAA Normal</span>
-                <span class="contrast-badge ${aaaLarge ? 'pass' : 'fail'}">AAA Large</span>
+                <span class="contrast-badge ${aaNormal ? 'pass' : 'fail'}">AA Normal (4.5:1)</span>
+                <span class="contrast-badge ${aaLarge ? 'pass' : 'fail'}">AA Large (3:1)</span>
+                <span class="contrast-badge ${aaaNormal ? 'pass' : 'fail'}">AAA Normal (7:1)</span>
+                <span class="contrast-badge ${aaaLarge ? 'pass' : 'fail'}">AAA Large (4.5:1)</span>
             `;
 
             // Update preview
@@ -1819,31 +1879,117 @@
             }
         });
 
+        // Perceptual color difference (weighted Euclidean - approximates human vision)
+        function getColorDifference(rgb1, rgb2) {
+            const rMean = (rgb1.r + rgb2.r) / 2;
+            const dR = rgb1.r - rgb2.r;
+            const dG = rgb1.g - rgb2.g;
+            const dB = rgb1.b - rgb2.b;
+            // Weight channels based on perceptual importance
+            const weightR = 2 + rMean / 256;
+            const weightG = 4;
+            const weightB = 2 + (255 - rMean) / 256;
+            return Math.sqrt(weightR * dR * dR + weightG * dG * dG + weightB * dB * dB);
+        }
+
         function ensureAccessibleContrast(colors, bgHex) {
             const bg = hexToRgb(bgHex);
-            return colors.map(color => {
-                let adjusted = { ...color };
-                let ratio = getContrastRatio(adjusted, bg);
-                const hsl = rgbToHsl(adjusted.r, adjusted.g, adjusted.b);
+            if (!bg) return colors;
 
-                // Adjust lightness until we meet AA standard (4.5:1)
+            const minColorDiff = 40; // Minimum perceptual difference between palette colors
+
+            // First pass: adjust each color to meet background contrast
+            let adjusted = colors.map(color => {
+                const hsl = rgbToHsl(color.r, color.g, color.b);
+                let ratio = getContrastRatio(color, bg);
+
+                if (ratio >= 4.5) {
+                    return { r: color.r, g: color.g, b: color.b, h: hsl.h, s: hsl.s, l: hsl.l };
+                }
+
+                // Test which direction improves contrast
+                const testLighter = hslToRgb(hsl.h, hsl.s, Math.min(100, hsl.l + 5));
+                const testDarker = hslToRgb(hsl.h, hsl.s, Math.max(0, hsl.l - 5));
+                const goLighter = getContrastRatio(testLighter, bg) > getContrastRatio(testDarker, bg);
+
+                let currentL = hsl.l;
+                let result = { ...color };
+                const step = 2;
                 let attempts = 0;
-                while (ratio < 4.5 && attempts < 50) {
-                    // Determine if we need to go lighter or darker
-                    const bgLuminance = getLuminance(bg.r, bg.g, bg.b);
-                    if (bgLuminance > 0.5) {
-                        // Dark text on light background
-                        hsl.l = Math.max(0, hsl.l - 3);
-                    } else {
-                        // Light text on dark background
-                        hsl.l = Math.min(100, hsl.l + 3);
+
+                while (ratio < 4.5 && attempts < 60) {
+                    currentL = goLighter ? Math.min(100, currentL + step) : Math.max(0, currentL - step);
+
+                    if ((goLighter && currentL >= 100) || (!goLighter && currentL <= 0)) {
+                        // Try other direction
+                        currentL = hsl.l;
+                        const otherDir = !goLighter;
+                        while (ratio < 4.5 && attempts < 60) {
+                            currentL = otherDir ? Math.min(100, currentL + step) : Math.max(0, currentL - step);
+                            result = hslToRgb(hsl.h, hsl.s, currentL);
+                            ratio = getContrastRatio(result, bg);
+                            attempts++;
+                            if ((otherDir && currentL >= 100) || (!otherDir && currentL <= 0)) break;
+                        }
+                        break;
                     }
-                    adjusted = hslToRgb(hsl.h, hsl.s, hsl.l);
-                    ratio = getContrastRatio(adjusted, bg);
+
+                    result = hslToRgb(hsl.h, hsl.s, currentL);
+                    ratio = getContrastRatio(result, bg);
                     attempts++;
                 }
-                return adjusted;
+
+                return { r: result.r, g: result.g, b: result.b, h: hsl.h, s: hsl.s, l: currentL };
             });
+
+            // Second pass: ensure colors are distinct from each other
+            for (let i = 1; i < adjusted.length; i++) {
+                let tooSimilar = false;
+                let minDiff = Infinity;
+
+                // Check against all previous colors
+                for (let j = 0; j < i; j++) {
+                    const diff = getColorDifference(adjusted[i], adjusted[j]);
+                    minDiff = Math.min(minDiff, diff);
+                    if (diff < minColorDiff) {
+                        tooSimilar = true;
+                    }
+                }
+
+                if (tooSimilar) {
+                    const hsl = { h: adjusted[i].h, s: adjusted[i].s, l: adjusted[i].l };
+                    let bestL = hsl.l;
+                    let bestMinDiff = minDiff;
+
+                    // Search for a lightness that maximizes distinctiveness while keeping contrast
+                    for (let testL = 5; testL <= 95; testL += 3) {
+                        const testRgb = hslToRgb(hsl.h, hsl.s, testL);
+                        const testRatio = getContrastRatio(testRgb, bg);
+
+                        if (testRatio >= 4.5) {
+                            // Calculate minimum difference from all previous colors
+                            let testMinDiff = Infinity;
+                            for (let k = 0; k < i; k++) {
+                                testMinDiff = Math.min(testMinDiff, getColorDifference(testRgb, adjusted[k]));
+                            }
+
+                            if (testMinDiff > bestMinDiff) {
+                                bestL = testL;
+                                bestMinDiff = testMinDiff;
+                            }
+                        }
+                    }
+
+                    // Apply the best lightness found
+                    if (bestMinDiff > minDiff) {
+                        const newRgb = hslToRgb(hsl.h, hsl.s, bestL);
+                        adjusted[i] = { r: newRgb.r, g: newRgb.g, b: newRgb.b, h: hsl.h, s: hsl.s, l: bestL };
+                    }
+                }
+            }
+
+            // Return clean RGB objects
+            return adjusted.map(c => ({ r: c.r, g: c.g, b: c.b }));
         }
 
         // Initialize palette and accessibility tools

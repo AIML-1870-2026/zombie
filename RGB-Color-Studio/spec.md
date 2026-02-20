@@ -9,8 +9,8 @@ An interactive web application for exploring RGB color mixing through particle s
 An optimized particle system demonstrating additive RGB color mixing.
 
 #### Particle System
-- **Total particles**: 60,000
-- **Distribution**: ~20,000 red, ~20,000 green, ~20,000 blue
+- **Default particles**: 50,000 (adjustable 10,000 - 250,000)
+- **Distribution**: Equal split between red, green, and blue
 - **FPS counter**: Displays current frame rate in top-left corner
 - **Particle size**: Small, simple squares for performance
 - **Rendering**: ImageData pixel manipulation with Float32Array typed arrays for positions/velocities
@@ -19,7 +19,8 @@ An optimized particle system demonstrating additive RGB color mixing.
 - **R Slider** (0-255): Controls brightness of red particles
 - **G Slider** (0-255): Controls brightness of green particles
 - **B Slider** (0-255): Controls brightness of blue particles
-- **Zoom Slider**: Smooth zoom from 1x to 16x to see blended color
+- **Zoom Slider**: Smooth zoom from 1x to 8x to see blended color
+- **Particle Slider** (10k-250k): Adjusts total particle count, default 50k
 
 #### Rendering
 - Additive blending (`globalCompositeOperation: 'lighter'`) so overlapping colors mix
@@ -86,7 +87,9 @@ Each tool is contained in a clear block with a name and helpful hint.
 
 #### Auto-Contrast
 - Toggle to automatically adjust palette colors for readability
-- Ensures all colors meet WCAG AA standard (4.5:1 contrast)
+- Ensures all colors meet WCAG AA standard (4.5:1 contrast) against the background
+- Ensures palette colors remain perceptually distinct from each other
+- Uses weighted color difference algorithm to prevent colors from converging
 - Select background color to check contrast against
 - Adjusts lightness of colors while preserving hue
 
