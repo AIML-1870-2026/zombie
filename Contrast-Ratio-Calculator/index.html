@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contrast Ratio Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a2e;
+            min-height: 100vh;
+            padding: 20px;
+            color: #eee;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 24px;
+            font-weight: 300;
+            font-size: 2rem;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 800px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h2 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            margin-bottom: 16px;
+            font-weight: 500;
+        }
+
+        .color-control {
+            margin-bottom: 24px;
+        }
+
+        .color-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .color-swatch {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+        }
+
+        .color-label {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .rgb-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .rgb-row label {
+            width: 20px;
+            font-weight: 600;
+            color: #aaa;
+        }
+
+        .rgb-row input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #0f3460;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .rgb-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #e94560;
+            cursor: pointer;
+            border: 2px solid #fff;
+        }
+
+        .rgb-row input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #e94560;
+            cursor: pointer;
+            border: 2px solid #fff;
+        }
+
+        .rgb-row input[type="number"] {
+            width: 60px;
+            padding: 6px 8px;
+            border: 1px solid #0f3460;
+            border-radius: 6px;
+            background: #0f3460;
+            color: #fff;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .rgb-row input[type="number"]:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+
+        .size-control {
+            margin-bottom: 24px;
+        }
+
+        .size-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .size-row input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #0f3460;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .size-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #e94560;
+            cursor: pointer;
+            border: 2px solid #fff;
+        }
+
+        .size-row input[type="number"] {
+            width: 70px;
+            padding: 6px 8px;
+            border: 1px solid #0f3460;
+            border-radius: 6px;
+            background: #0f3460;
+            color: #fff;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .size-row span {
+            color: #888;
+        }
+
+        .presets-section {
+            margin-bottom: 24px;
+        }
+
+        .presets-section select,
+        .wcag-level-section select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            background: #0f3460;
+            color: #fff;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+
+        .presets-section select:focus,
+        .wcag-level-section select:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+
+        .wcag-level-section {
+            margin-bottom: 24px;
+        }
+
+        .vision-section fieldset {
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 12px 16px;
+        }
+
+        .vision-section legend {
+            padding: 0 8px;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .vision-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+        }
+
+        .vision-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .vision-option input[type="radio"] {
+            accent-color: #e94560;
+        }
+
+        .vision-option label {
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .preview-card {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .text-display-wrapper {
+            position: relative;
+            flex: 1;
+            min-height: 200px;
+            margin-bottom: 20px;
+        }
+
+        .text-display {
+            width: 100%;
+            height: 100%;
+            min-height: 200px;
+            padding: 20px;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            resize: none;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .text-display:focus {
+            outline: 2px solid #e94560;
+            outline-offset: 2px;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .metric {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            margin-bottom: 6px;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .contrast-ratio .metric-value {
+            font-size: 2rem;
+        }
+
+        .simulated-notice {
+            font-size: 0.75rem;
+            color: #e94560;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .simulated-notice.visible {
+            display: block;
+        }
+
+        .normal-vision-info {
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: #888;
+            display: none;
+        }
+
+        .normal-vision-info.visible {
+            display: block;
+        }
+
+        .normal-vision-info .info-content {
+            display: inline;
+        }
+
+        .normal-vision-info .info-ratio {
+            color: #aaa;
+        }
+
+        .normal-vision-info .mini-badge {
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        .normal-vision-info .mini-badge.pass {
+            color: #95d5b2;
+        }
+
+        .normal-vision-info .mini-badge.fail {
+            color: #f8a5a5;
+        }
+
+        .luminosity-values {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .lum-item {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .lum-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .lum-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .wcag-badges {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .wcag-badge {
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .wcag-badge.pass {
+            background: #1b4332;
+            border: 2px solid #2d6a4f;
+        }
+
+        .wcag-badge.fail {
+            background: #641220;
+            border: 2px solid #a4161a;
+        }
+
+        .wcag-status {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .wcag-badge.pass .wcag-status {
+            color: #95d5b2;
+        }
+
+        .wcag-badge.fail .wcag-status {
+            color: #f8a5a5;
+        }
+
+        .wcag-type {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #aaa;
+        }
+
+        .wcag-threshold {
+            font-size: 0.7rem;
+            color: #777;
+            margin-top: 2px;
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Contrast Ratio Calculator</h1>
+
+    <div class="container">
+        <!-- Preview Card (now first) -->
+        <div class="card preview-card">
+            <h2>Preview</h2>
+            <div class="text-display-wrapper">
+                <textarea class="text-display" id="textDisplay">The quick brown fox jumps over the lazy dog.</textarea>
+            </div>
+
+            <div class="metrics">
+                <div class="metric contrast-ratio">
+                    <div class="metric-label">Contrast Ratio</div>
+                    <div class="metric-value" id="contrastRatio">21.00:1</div>
+                    <div class="simulated-notice" id="simulatedNotice">Calculated for simulated vision</div>
+                    <div class="normal-vision-info" id="normalVisionInfo">
+                        Normal vision: <span class="info-ratio" id="normalRatio">21.00:1</span>
+                        <span class="mini-badge pass" id="normalBadgeNormal">Normal PASS</span>
+                        <span class="mini-badge pass" id="normalBadgeLarge">Large PASS</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="luminosity-values">
+                <div class="lum-item">
+                    <div class="lum-label">Background Luminosity</div>
+                    <div class="lum-value" id="bgLum">1.00</div>
+                </div>
+                <div class="lum-item">
+                    <div class="lum-label">Text Luminosity</div>
+                    <div class="lum-value" id="textLum">0.00</div>
+                </div>
+            </div>
+
+            <div class="wcag-badges">
+                <div class="wcag-badge pass" id="wcagNormal">
+                    <div class="wcag-status">PASS</div>
+                    <div class="wcag-type">Normal Text</div>
+                    <div class="wcag-threshold" id="wcagNormalThreshold">≥ 4.5:1</div>
+                </div>
+                <div class="wcag-badge pass" id="wcagLarge">
+                    <div class="wcag-status">PASS</div>
+                    <div class="wcag-type">Large Text</div>
+                    <div class="wcag-threshold" id="wcagLargeThreshold">≥ 3:1</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Card (now second) -->
+        <div class="card controls-card">
+            <div class="color-control">
+                <div class="color-header">
+                    <div class="color-swatch" id="bgSwatch"></div>
+                    <span class="color-label">Background Color</span>
+                </div>
+                <div class="rgb-row">
+                    <label>R</label>
+                    <input type="range" id="bgR" min="0" max="255" value="255">
+                    <input type="number" id="bgRNum" min="0" max="255" value="255">
+                </div>
+                <div class="rgb-row">
+                    <label>G</label>
+                    <input type="range" id="bgG" min="0" max="255" value="255">
+                    <input type="number" id="bgGNum" min="0" max="255" value="255">
+                </div>
+                <div class="rgb-row">
+                    <label>B</label>
+                    <input type="range" id="bgB" min="0" max="255" value="255">
+                    <input type="number" id="bgBNum" min="0" max="255" value="255">
+                </div>
+            </div>
+
+            <div class="color-control">
+                <div class="color-header">
+                    <div class="color-swatch" id="textSwatch"></div>
+                    <span class="color-label">Text Color</span>
+                </div>
+                <div class="rgb-row">
+                    <label>R</label>
+                    <input type="range" id="textR" min="0" max="255" value="0">
+                    <input type="number" id="textRNum" min="0" max="255" value="0">
+                </div>
+                <div class="rgb-row">
+                    <label>G</label>
+                    <input type="range" id="textG" min="0" max="255" value="0">
+                    <input type="number" id="textGNum" min="0" max="255" value="0">
+                </div>
+                <div class="rgb-row">
+                    <label>B</label>
+                    <input type="range" id="textB" min="0" max="255" value="0">
+                    <input type="number" id="textBNum" min="0" max="255" value="0">
+                </div>
+            </div>
+
+            <div class="size-control">
+                <h2>Text Size</h2>
+                <div class="size-row">
+                    <input type="range" id="textSize" min="12" max="72" value="16">
+                    <input type="number" id="textSizeNum" min="12" max="72" value="16">
+                    <span>px</span>
+                </div>
+            </div>
+
+            <div class="wcag-level-section">
+                <h2>WCAG Level</h2>
+                <select id="wcagLevel">
+                    <option value="AA">WCAG AA (Normal: 4.5:1, Large: 3:1)</option>
+                    <option value="AAA">WCAG AAA (Normal: 7:1, Large: 4.5:1)</option>
+                </select>
+            </div>
+
+            <div class="presets-section">
+                <h2>Preset Schemes</h2>
+                <select id="presets">
+                    <option value="">— Select a preset —</option>
+                    <option value="black-white">High Contrast: Black on White</option>
+                    <option value="white-black">High Contrast: White on Black</option>
+                    <option value="bootstrap">Bootstrap Primary</option>
+                    <option value="material">Material Blue</option>
+                    <option value="solarized">Navy on Cream (Solarized)</option>
+                    <option value="subtle-gray">⚠ Subtle Gray (Low Contrast)</option>
+                    <option value="red-green">⚠ Red on Green (Color Blind Issue)</option>
+                    <option value="low-contrast">⚠ Low Contrast (Fails WCAG)</option>
+                </select>
+            </div>
+
+            <div class="vision-section">
+                <fieldset>
+                    <legend>Vision Simulation</legend>
+                    <div class="vision-options">
+                        <div class="vision-option">
+                            <input type="radio" name="vision" id="visionNormal" value="normal" checked>
+                            <label for="visionNormal">Normal</label>
+                        </div>
+                        <div class="vision-option">
+                            <input type="radio" name="vision" id="visionProtanopia" value="protanopia">
+                            <label for="visionProtanopia">Protanopia</label>
+                        </div>
+                        <div class="vision-option">
+                            <input type="radio" name="vision" id="visionDeuteranopia" value="deuteranopia">
+                            <label for="visionDeuteranopia">Deuteranopia</label>
+                        </div>
+                        <div class="vision-option">
+                            <input type="radio" name="vision" id="visionTritanopia" value="tritanopia">
+                            <label for="visionTritanopia">Tritanopia</label>
+                        </div>
+                        <div class="vision-option">
+                            <input type="radio" name="vision" id="visionMonochromacy" value="monochromacy">
+                            <label for="visionMonochromacy">Monochromacy</label>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Element references
+        const bgR = document.getElementById('bgR');
+        const bgG = document.getElementById('bgG');
+        const bgB = document.getElementById('bgB');
+        const bgRNum = document.getElementById('bgRNum');
+        const bgGNum = document.getElementById('bgGNum');
+        const bgBNum = document.getElementById('bgBNum');
+        const bgSwatch = document.getElementById('bgSwatch');
+
+        const textR = document.getElementById('textR');
+        const textG = document.getElementById('textG');
+        const textB = document.getElementById('textB');
+        const textRNum = document.getElementById('textRNum');
+        const textGNum = document.getElementById('textGNum');
+        const textBNum = document.getElementById('textBNum');
+        const textSwatch = document.getElementById('textSwatch');
+
+        const textSize = document.getElementById('textSize');
+        const textSizeNum = document.getElementById('textSizeNum');
+        const textDisplay = document.getElementById('textDisplay');
+
+        const contrastRatioEl = document.getElementById('contrastRatio');
+        const bgLumEl = document.getElementById('bgLum');
+        const textLumEl = document.getElementById('textLum');
+        const wcagNormal = document.getElementById('wcagNormal');
+        const wcagLarge = document.getElementById('wcagLarge');
+        const wcagNormalThreshold = document.getElementById('wcagNormalThreshold');
+        const wcagLargeThreshold = document.getElementById('wcagLargeThreshold');
+        const simulatedNotice = document.getElementById('simulatedNotice');
+        const normalVisionInfo = document.getElementById('normalVisionInfo');
+        const normalRatio = document.getElementById('normalRatio');
+        const normalBadgeNormal = document.getElementById('normalBadgeNormal');
+        const normalBadgeLarge = document.getElementById('normalBadgeLarge');
+
+        const presetsSelect = document.getElementById('presets');
+        const wcagLevelSelect = document.getElementById('wcagLevel');
+        const visionRadios = document.querySelectorAll('input[name="vision"]');
+
+        // WCAG thresholds
+        const wcagThresholds = {
+            'AA': { normal: 4.5, large: 3 },
+            'AAA': { normal: 7, large: 4.5 }
+        };
+
+        // Color vision simulation matrices
+        const visionMatrices = {
+            'normal': null,
+            'protanopia': [
+                [0.567, 0.433, 0],
+                [0.558, 0.442, 0],
+                [0, 0.242, 0.758]
+            ],
+            'deuteranopia': [
+                [0.625, 0.375, 0],
+                [0.7, 0.3, 0],
+                [0, 0.3, 0.7]
+            ],
+            'tritanopia': [
+                [0.95, 0.05, 0],
+                [0, 0.433, 0.567],
+                [0, 0.475, 0.525]
+            ],
+            'monochromacy': [
+                [0.2126, 0.7152, 0.0722],
+                [0.2126, 0.7152, 0.0722],
+                [0.2126, 0.7152, 0.0722]
+            ]
+        };
+
+        // Preset color schemes
+        const presets = {
+            'black-white': { bg: [255, 255, 255], text: [0, 0, 0] },
+            'white-black': { bg: [0, 0, 0], text: [255, 255, 255] },
+            'bootstrap': { bg: [255, 255, 255], text: [13, 110, 253] },
+            'material': { bg: [255, 255, 255], text: [25, 118, 210] },
+            'solarized': { bg: [253, 246, 227], text: [0, 43, 54] },
+            'subtle-gray': { bg: [245, 245, 245], text: [117, 117, 117] },
+            'red-green': { bg: [0, 255, 0], text: [255, 0, 0] },
+            'low-contrast': { bg: [204, 204, 204], text: [153, 153, 153] }
+        };
+
+        // Apply color vision simulation to RGB values
+        function simulateColorVision(r, g, b, visionType) {
+            if (visionType === 'normal' || !visionMatrices[visionType]) {
+                return { r, g, b };
+            }
+
+            const matrix = visionMatrices[visionType];
+            const newR = Math.round(matrix[0][0] * r + matrix[0][1] * g + matrix[0][2] * b);
+            const newG = Math.round(matrix[1][0] * r + matrix[1][1] * g + matrix[1][2] * b);
+            const newB = Math.round(matrix[2][0] * r + matrix[2][1] * g + matrix[2][2] * b);
+
+            return {
+                r: Math.max(0, Math.min(255, newR)),
+                g: Math.max(0, Math.min(255, newG)),
+                b: Math.max(0, Math.min(255, newB))
+            };
+        }
+
+        // Calculate relative luminance (WCAG 2.1)
+        function getLuminance(r, g, b) {
+            const [rs, gs, bs] = [r, g, b].map(c => {
+                const srgb = c / 255;
+                return srgb <= 0.03928
+                    ? srgb / 12.92
+                    : Math.pow((srgb + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+        }
+
+        // Calculate contrast ratio
+        function getContrastRatio(lum1, lum2) {
+            const lighter = Math.max(lum1, lum2);
+            const darker = Math.min(lum1, lum2);
+            return (lighter + 0.05) / (darker + 0.05);
+        }
+
+        // Clamp value to range
+        function clamp(val, min, max) {
+            return Math.max(min, Math.min(max, parseInt(val) || min));
+        }
+
+        // Get current vision type
+        function getCurrentVisionType() {
+            const selected = document.querySelector('input[name="vision"]:checked');
+            return selected ? selected.value : 'normal';
+        }
+
+        // Sync slider and number input
+        function syncInputs(slider, numInput) {
+            slider.addEventListener('input', () => {
+                numInput.value = slider.value;
+                update();
+            });
+
+            numInput.addEventListener('input', () => {
+                const val = clamp(numInput.value, 0, 255);
+                numInput.value = val;
+                slider.value = val;
+                update();
+            });
+
+            numInput.addEventListener('blur', () => {
+                numInput.value = clamp(numInput.value, 0, 255);
+            });
+        }
+
+        // Setup all RGB syncs
+        syncInputs(bgR, bgRNum);
+        syncInputs(bgG, bgGNum);
+        syncInputs(bgB, bgBNum);
+        syncInputs(textR, textRNum);
+        syncInputs(textG, textGNum);
+        syncInputs(textB, textBNum);
+
+        // Text size sync
+        textSize.addEventListener('input', () => {
+            textSizeNum.value = textSize.value;
+            update();
+        });
+
+        textSizeNum.addEventListener('input', () => {
+            const val = clamp(textSizeNum.value, 12, 72);
+            textSizeNum.value = val;
+            textSize.value = val;
+            update();
+        });
+
+        textSizeNum.addEventListener('blur', () => {
+            textSizeNum.value = clamp(textSizeNum.value, 12, 72);
+        });
+
+        // WCAG level change
+        wcagLevelSelect.addEventListener('change', update);
+
+        // Preset selection
+        presetsSelect.addEventListener('change', () => {
+            const preset = presets[presetsSelect.value];
+            if (preset) {
+                bgR.value = bgRNum.value = preset.bg[0];
+                bgG.value = bgGNum.value = preset.bg[1];
+                bgB.value = bgBNum.value = preset.bg[2];
+                textR.value = textRNum.value = preset.text[0];
+                textG.value = textGNum.value = preset.text[1];
+                textB.value = textBNum.value = preset.text[2];
+                update();
+            }
+        });
+
+        // Vision simulation
+        visionRadios.forEach(radio => {
+            radio.addEventListener('change', update);
+        });
+
+        // Main update function
+        function update() {
+            const bgColor = {
+                r: parseInt(bgR.value),
+                g: parseInt(bgG.value),
+                b: parseInt(bgB.value)
+            };
+            const txtColor = {
+                r: parseInt(textR.value),
+                g: parseInt(textG.value),
+                b: parseInt(textB.value)
+            };
+            const size = parseInt(textSize.value);
+            const visionType = getCurrentVisionType();
+            const wcagLevel = wcagLevelSelect.value;
+            const thresholds = wcagThresholds[wcagLevel];
+
+            // Update swatches (original colors)
+            bgSwatch.style.backgroundColor = `rgb(${bgColor.r}, ${bgColor.g}, ${bgColor.b})`;
+            textSwatch.style.backgroundColor = `rgb(${txtColor.r}, ${txtColor.g}, ${txtColor.b})`;
+
+            // Apply color vision simulation
+            const simBg = simulateColorVision(bgColor.r, bgColor.g, bgColor.b, visionType);
+            const simTxt = simulateColorVision(txtColor.r, txtColor.g, txtColor.b, visionType);
+
+            // Apply simulated colors directly to text display (no CSS filter)
+            // This ensures visual matches calculation exactly
+            textDisplay.style.filter = 'none';
+            textDisplay.style.backgroundColor = `rgb(${simBg.r}, ${simBg.g}, ${simBg.b})`;
+            textDisplay.style.color = `rgb(${simTxt.r}, ${simTxt.g}, ${simTxt.b})`;
+            textDisplay.style.fontSize = `${size}px`;
+
+            // Calculate luminance using simulated colors
+            const bgLum = getLuminance(simBg.r, simBg.g, simBg.b);
+            const txtLum = getLuminance(simTxt.r, simTxt.g, simTxt.b);
+
+            // Calculate contrast ratio
+            const ratio = getContrastRatio(bgLum, txtLum);
+
+            // Update displays
+            contrastRatioEl.textContent = `${ratio.toFixed(2)}:1`;
+            bgLumEl.textContent = bgLum.toFixed(2);
+            textLumEl.textContent = txtLum.toFixed(2);
+
+            // Show/hide simulated notice and normal vision info
+            const isSimulated = visionType !== 'normal';
+            simulatedNotice.classList.toggle('visible', isSimulated);
+            normalVisionInfo.classList.toggle('visible', isSimulated);
+
+            // Calculate and display normal vision values when simulating
+            if (isSimulated) {
+                const normalBgLum = getLuminance(bgColor.r, bgColor.g, bgColor.b);
+                const normalTxtLum = getLuminance(txtColor.r, txtColor.g, txtColor.b);
+                const normalRatioValue = getContrastRatio(normalBgLum, normalTxtLum);
+
+                normalRatio.textContent = `${normalRatioValue.toFixed(2)}:1`;
+
+                const passesNormal = normalRatioValue >= thresholds.normal;
+                const passesLarge = normalRatioValue >= thresholds.large;
+
+                normalBadgeNormal.textContent = `Normal ${passesNormal ? 'PASS' : 'FAIL'}`;
+                normalBadgeNormal.className = `mini-badge ${passesNormal ? 'pass' : 'fail'}`;
+
+                normalBadgeLarge.textContent = `Large ${passesLarge ? 'PASS' : 'FAIL'}`;
+                normalBadgeLarge.className = `mini-badge ${passesLarge ? 'pass' : 'fail'}`;
+            }
+
+            // Update WCAG threshold labels
+            wcagNormalThreshold.textContent = `≥ ${thresholds.normal}:1`;
+            wcagLargeThreshold.textContent = `≥ ${thresholds.large}:1`;
+
+            // Update WCAG badges
+            updateWcagBadge(wcagNormal, ratio >= thresholds.normal);
+            updateWcagBadge(wcagLarge, ratio >= thresholds.large);
+
+            // Reset preset dropdown if colors changed manually
+            presetsSelect.value = '';
+        }
+
+        function updateWcagBadge(badge, passes) {
+            badge.className = `wcag-badge ${passes ? 'pass' : 'fail'}`;
+            badge.querySelector('.wcag-status').textContent = passes ? 'PASS' : 'FAIL';
+        }
+
+        // Initial update
+        update();
+    </script>
+</body>
+</html>
