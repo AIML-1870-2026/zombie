@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Close Approach Tracker — NEO Dashboard</title>
+    <script src="https://unpkg.com/three"></script>
+    <script src="https://unpkg.com/globe.gl"></script>
     <style>
         * {
             margin: 0;
@@ -672,6 +674,131 @@
             opacity: 0.5;
         }
 
+        /* 3D Globe View */
+        .globe-container {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 180px);
+            min-height: 500px;
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0e17 100%);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        #globeViz {
+            width: 100%;
+            height: 100%;
+        }
+
+        .globe-legend {
+            position: absolute;
+            bottom: 1.5rem;
+            left: 1.5rem;
+            background: rgba(19, 26, 43, 0.95);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .legend-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            margin-bottom: 0.75rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.375rem;
+        }
+
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .legend-dot.moon {
+            background: #c0c0c0;
+            box-shadow: 0 0 8px rgba(192, 192, 192, 0.5);
+        }
+
+        .legend-dot.safe {
+            background: var(--success);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+        }
+
+        .legend-dot.close {
+            background: var(--warning);
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+        }
+
+        .legend-dot.hazardous {
+            background: var(--danger);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+        }
+
+        .globe-info {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            background: rgba(19, 26, 43, 0.95);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            min-width: 220px;
+            backdrop-filter: blur(10px);
+        }
+
+        .info-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .info-detail {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+
+        .info-detail span {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .info-badge {
+            display: inline-block;
+            margin-top: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .info-badge.hazardous {
+            background: var(--danger);
+            color: white;
+        }
+
+        .info-badge.moon {
+            background: #c0c0c0;
+            color: #1a1a2e;
+        }
+
         /* Footer */
         footer {
             max-width: 1400px;
@@ -848,6 +975,7 @@
 
             <nav>
                 <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+                <button class="tab-btn" data-tab="3d-view">3D View</button>
                 <button class="tab-btn" data-tab="this-week">This Week</button>
                 <button class="tab-btn" data-tab="close-approaches">Close Approaches</button>
                 <button class="tab-btn" data-tab="impact-watch">Impact Watch <span class="badge" id="sentryCount">--</span></button>
@@ -930,6 +1058,35 @@
                             <div>Loading data...</div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3D View Tab -->
+        <div class="tab-content" id="tab-3d-view">
+            <div class="globe-container">
+                <div id="globeViz"></div>
+                <div class="globe-legend">
+                    <div class="legend-title">Distance Reference</div>
+                    <div class="legend-item">
+                        <span class="legend-dot moon"></span>
+                        <span>Moon (1 LD = 384,400 km)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot safe"></span>
+                        <span>Safe approach (&gt;1 LD)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot close"></span>
+                        <span>Close approach (&lt;1 LD)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot hazardous"></span>
+                        <span>Potentially hazardous</span>
+                    </div>
+                </div>
+                <div class="globe-info" id="globeInfo">
+                    <div class="info-title">Hover over an object for details</div>
                 </div>
             </div>
         </div>
@@ -1626,6 +1783,11 @@
                     if (btn.dataset.tab === 'close-approaches' && !state.cadData) {
                         loadCADData();
                     }
+
+                    // Initialize 3D globe on first visit
+                    if (btn.dataset.tab === '3d-view' && !globeInitialized) {
+                        setTimeout(initGlobe, 100); // Small delay to ensure container is visible
+                    }
                 });
             });
 
@@ -1692,6 +1854,145 @@
             if (state.autoRefresh) {
                 state.refreshInterval = setInterval(loadAllData, CONFIG.CACHE_DURATION);
             }
+        }
+
+        // =====================
+        // 3D Globe Visualization
+        // =====================
+        let globe = null;
+        let globeInitialized = false;
+
+        function initGlobe() {
+            if (globeInitialized || !state.weekData) return;
+
+            const container = document.getElementById('globeViz');
+            if (!container) return;
+
+            // Prepare asteroid data as points
+            const asteroids = state.weekData.map((neo, index) => {
+                const distanceLd = neo.distanceKm / CONFIG.LUNAR_DISTANCE_KM;
+                // Scale distance: 1 LD = 0.5 altitude units for visibility
+                const altitude = Math.min(distanceLd * 0.5, 4);
+                // Distribute around Earth based on index
+                const lat = Math.sin(index * 0.7) * 70;
+                const lng = (index * 37) % 360 - 180;
+
+                return {
+                    lat,
+                    lng,
+                    altitude,
+                    name: neo.name,
+                    distanceKm: neo.distanceKm,
+                    distanceLd: distanceLd,
+                    diameter: (neo.diameterMin + neo.diameterMax) / 2,
+                    velocity: neo.velocityKmS,
+                    isHazardous: neo.isHazardous,
+                    approachDate: neo.approachDate,
+                    size: Math.max(0.4, Math.min(1.5, neo.diameterMax / 300)),
+                    color: neo.isHazardous ? '#ef4444' : (distanceLd < 1 ? '#f59e0b' : '#10b981')
+                };
+            });
+
+            // Add Moon as reference (always at 1 LD = 0.5 altitude)
+            asteroids.push({
+                lat: 20,
+                lng: 90,
+                altitude: 0.5,
+                name: 'Moon (Reference)',
+                distanceKm: CONFIG.LUNAR_DISTANCE_KM,
+                distanceLd: 1,
+                diameter: 3474000,
+                velocity: 1.022,
+                isHazardous: false,
+                isMoon: true,
+                size: 2.5,
+                color: '#c0c0c0'
+            });
+
+            // Create globe with objectsData layer (properly positions 3D objects)
+            globe = Globe()
+                .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+                .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+                .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+                .showAtmosphere(true)
+                .atmosphereColor('#4a9eff')
+                .atmosphereAltitude(0.2)
+                .objectsData(asteroids)
+                .objectLat('lat')
+                .objectLng('lng')
+                .objectAltitude('altitude')
+                .objectThreeObject(d => {
+                    // Create a group to hold the sphere and glow
+                    const group = new THREE.Group();
+
+                    // Main sphere - use BasicMaterial (doesn't need lighting)
+                    const radius = d.isMoon ? 6 : 2.5;
+                    const geometry = new THREE.SphereGeometry(radius, 24, 24);
+                    const material = new THREE.MeshBasicMaterial({
+                        color: d.color,
+                        transparent: false
+                    });
+                    const sphere = new THREE.Mesh(geometry, material);
+                    group.add(sphere);
+
+                    // Outer glow sphere
+                    const glowGeometry = new THREE.SphereGeometry(radius * 1.5, 24, 24);
+                    const glowMaterial = new THREE.MeshBasicMaterial({
+                        color: d.color,
+                        transparent: true,
+                        opacity: 0.3
+                    });
+                    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                    group.add(glow);
+
+                    // Store data for hover
+                    group.userData = d;
+
+                    return group;
+                })
+                .onObjectHover(d => {
+                    const infoPanel = document.getElementById('globeInfo');
+                    if (d) {
+                        if (d.isMoon) {
+                            infoPanel.innerHTML = `
+                                <div class="info-title">Moon</div>
+                                <div class="info-detail">Distance: <span>1 LD (384,400 km)</span></div>
+                                <div class="info-detail">Diameter: <span>3,474 km</span></div>
+                                <div class="info-badge moon">Reference Point</div>
+                            `;
+                        } else {
+                            const sizeComp = getSizeComparison(d.diameter);
+                            infoPanel.innerHTML = `
+                                <div class="info-title">${d.name}</div>
+                                <div class="info-detail">Distance: <span>${formatNumber(d.distanceLd, 2)} LD</span></div>
+                                <div class="info-detail">Miss Distance: <span>${formatNumber(d.distanceKm)} km</span></div>
+                                <div class="info-detail">Diameter: <span>~${formatNumber(d.diameter, 0)} m</span></div>
+                                ${sizeComp ? `<div class="info-detail">Size: <span>${sizeComp.text}</span></div>` : ''}
+                                <div class="info-detail">Velocity: <span>${formatNumber(d.velocity, 1)} km/s</span></div>
+                                <div class="info-detail">Approach: <span>${formatDateTime(d.approachDate)}</span></div>
+                                ${d.isHazardous ? '<div class="info-badge hazardous">Potentially Hazardous</div>' : ''}
+                            `;
+                        }
+                    } else {
+                        infoPanel.innerHTML = '<div class="info-title">Hover over an object for details</div>';
+                    }
+                })
+                (container);
+
+            // Set initial view
+            globe.pointOfView({ lat: 20, lng: -40, altitude: 2.5 });
+
+            // Auto-rotate slowly
+            globe.controls().autoRotate = true;
+            globe.controls().autoRotateSpeed = 0.5;
+
+            globeInitialized = true;
+        }
+
+        function updateGlobe() {
+            if (!globe || !state.weekData) return;
+            globeInitialized = false;
+            initGlobe();
         }
 
         // =====================
