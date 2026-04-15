@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Switchboard</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0f0f13;
+  --surface: #1a1a24;
+  --sf2:     #252535;
+  --sf3:     #2e2e45;
+  --accent:  #6e56cf;
+  --acc-h:   #7c65d9;
+  --text:    #e8e8f0;
+  --muted:   #8888aa;
+  --ok:      #4ade80;
+  --err:     #f87171;
+  --warn:    #fbbf24;
+  --border:  #2e2e45;
+  --r:       8px;
+  --rl:      12px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 30px; height: 30px;
+  background: var(--accent);
+  border-radius: 7px;
+  display: grid; place-items: center;
+  font-size: 15px;
+}
+.logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+.logo-sub  { font-size: 11px; color: var(--muted); }
+
+/* ── Settings ────────────────────────────────────────────────────── */
+.settings-wrap { position: relative; }
+.settings-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--sf2); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 14px; border-radius: var(--r);
+  cursor: pointer; font-size: 13px; transition: background 0.15s;
+}
+.settings-btn:hover { background: var(--sf3); }
+.p-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.p-dot.openai    { background: #10a37f; }
+.p-dot.anthropic { background: #d97706; }
+.caret { font-size: 9px; color: var(--muted); }
+
+.settings-panel {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  width: 320px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--rl);
+  padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  z-index: 200; display: none;
+}
+.settings-panel.open { display: block; }
+.s-sec { margin-bottom: 18px; }
+.s-sec:last-child { margin-bottom: 0; }
+.s-lbl {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--muted); margin-bottom: 8px;
+}
+.p-tabs { display: flex; gap: 6px; }
+.p-tab {
+  flex: 1; padding: 8px; background: var(--sf2); border: 1px solid var(--border);
+  color: var(--muted); border-radius: var(--r); cursor: pointer;
+  font-size: 13px; text-align: center; transition: all 0.15s;
+  font-family: inherit;
+}
+.p-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ── Form controls ───────────────────────────────────────────────── */
+select, input[type="text"], input[type="password"], textarea {
+  width: 100%; background: var(--sf2); border: 1px solid var(--border);
+  color: var(--text); padding: 9px 12px; border-radius: var(--r);
+  font-size: 13px; font-family: inherit; outline: none;
+  transition: border-color 0.15s;
+}
+select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+select { cursor: pointer; }
+
+.key-row { display: flex; gap: 8px; margin-bottom: 6px; }
+.key-row input { flex: 1; font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; }
+.btn-sm {
+  background: var(--sf2); border: 1px solid var(--border); color: var(--muted);
+  padding: 9px 12px; border-radius: var(--r); cursor: pointer;
+  font-size: 12px; white-space: nowrap; transition: all 0.15s; font-family: inherit;
+}
+.btn-sm:hover { background: var(--sf3); color: var(--text); }
+
+.key-status { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.key-status.ok  { color: var(--ok); }
+.key-status.bad { color: var(--err); }
+
+.privacy-note {
+  display: flex; gap: 8px; background: rgba(110,86,207,0.08);
+  border: 1px solid rgba(110,86,207,0.25); border-radius: var(--r);
+  padding: 10px 12px; font-size: 11px; color: var(--muted); line-height: 1.6;
+}
+.privacy-note .pi { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── Main layout ─────────────────────────────────────────────────── */
+main {
+  flex: 1; max-width: 900px; width: 100%;
+  margin: 0 auto; padding: 28px 24px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+
+/* ── CORS notice ─────────────────────────────────────────────────── */
+.cors-notice {
+  background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.28);
+  border-radius: var(--r); padding: 14px 16px; display: none;
+}
+.cors-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cors-head { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--warn); font-size: 13px; }
+.cors-body { font-size: 13px; color: var(--muted); line-height: 1.55; }
+.btn-link {
+  background: none; border: none; color: var(--accent); cursor: pointer;
+  font-size: 12px; padding: 0; font-family: inherit;
+}
+.btn-link:hover { color: var(--acc-h); }
+.proxy-pre {
+  margin-top: 12px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px 14px;
+  font-family: 'SF Mono','Fira Code',monospace; font-size: 11px;
+  color: var(--text); line-height: 1.7; display: none;
+  white-space: pre; overflow-x: auto;
+}
+.proxy-pre.open { display: block; }
+
+/* ── Toolbar / mode toggle ───────────────────────────────────────── */
+.toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.mode-toggle {
+  display: flex; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 4px; gap: 4px;
+}
+.mode-btn {
+  padding: 8px 16px; border-radius: 6px; border: none; background: none;
+  color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500;
+  font-family: inherit; transition: all 0.15s;
+}
+.mode-btn.active { background: var(--accent); color: #fff; }
+.mode-desc { font-size: 12px; color: var(--muted); }
+
+/* ── Section headers ─────────────────────────────────────────────── */
+.sec-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.sec-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+.sec-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ── Prompt ──────────────────────────────────────────────────────── */
+.ex-sel { font-size: 12px; max-width: 240px; padding: 6px 10px; color: var(--muted); cursor: pointer; }
+.prompt-area { resize: vertical; min-height: 120px; line-height: 1.65; }
+
+/* ── Save prompt form ────────────────────────────────────────────── */
+.save-form {
+  display: none; flex-direction: column; gap: 8px;
+  background: var(--sf2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px;
+}
+.save-form.open { display: flex; }
+.save-form-row { display: flex; gap: 8px; align-items: center; }
+.save-form-row input { flex: 1; }
+.save-cb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.save-cb input[type="checkbox"] { width: auto; accent-color: var(--accent); cursor: pointer; }
+
+/* ── Prompt Library ──────────────────────────────────────────────── */
+.library-panel {
+  display: none; flex-direction: column; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--rl); padding: 16px;
+}
+.library-panel.open { display: flex; }
+.lib-search { padding: 7px 11px; font-size: 12px; }
+.lib-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+.lib-entry {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--sf2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 12px;
+  gap: 10px;
+}
+.lib-entry-info { flex: 1; min-width: 0; }
+.lib-entry-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-entry-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.lib-entry-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.lib-empty { text-align: center; padding: 24px; font-size: 12px; color: var(--muted); }
+
+/* ── Schema section ──────────────────────────────────────────────── */
+.schema-sec { display: none; flex-direction: column; gap: 10px; }
+.schema-sec.visible { display: flex; }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill {
+  padding: 6px 12px; background: var(--sf2); border: 1px solid var(--border);
+  color: var(--muted); border-radius: var(--r); cursor: pointer;
+  font-size: 12px; font-family: inherit; transition: all 0.15s;
+}
+.pill:hover { background: var(--sf3); color: var(--text); }
+.pill.active { border-color: var(--accent); color: var(--accent); background: rgba(110,86,207,0.1); }
+.schema-area { font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; min-height: 160px; line-height: 1.7; resize: vertical; }
+.schema-msg { font-size: 11px; padding: 2px 0; }
+.schema-msg.ok  { color: var(--ok); }
+.schema-msg.bad { color: var(--err); }
+
+/* ── Compare config ──────────────────────────────────────────────── */
+.compare-cfg { display: none; flex-direction: column; gap: 10px; }
+.compare-cfg.visible { display: flex; }
+.compare-models { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.compare-model-slot label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ── Send row ────────────────────────────────────────────────────── */
+.send-row { display: flex; align-items: center; gap: 14px; }
+.btn-send {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--accent); color: #fff; border: none;
+  padding: 11px 24px; border-radius: var(--r);
+  font-size: 14px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: background 0.15s;
+}
+.btn-send:hover:not(:disabled) { background: var(--acc-h); }
+.btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  border-radius: 50%; animation: spin 0.6s linear infinite; display: none;
+}
+.loading .spinner   { display: block; }
+.loading .send-text { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.send-meta { font-size: 12px; color: var(--muted); }
+
+/* ── History tabs ────────────────────────────────────────────────── */
+.hist-hdr { display: flex; align-items: center; justify-content: space-between; }
+.hist-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin-top: 10px; }
+.h-tab {
+  padding: 7px 14px; background: var(--sf2); border: 1px solid var(--border);
+  color: var(--muted); border-radius: var(--r); cursor: pointer;
+  font-size: 12px; white-space: nowrap; flex-shrink: 0;
+  font-family: inherit; transition: all 0.15s;
+}
+.h-tab:hover { background: var(--sf3); color: var(--text); }
+.h-tab.active { border-color: var(--accent); color: var(--text); background: var(--sf3); }
+.h-tab.compare::before { content: "⇄ "; font-size: 10px; opacity: 0.7; }
+
+/* ── Response card ───────────────────────────────────────────────── */
+.resp-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--rl); overflow: hidden; margin-top: 10px;
+}
+.resp-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 16px; border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
+}
+.resp-meta-l { display: flex; align-items: center; gap: 8px; }
+.badge {
+  padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
+  background: var(--sf2); border: 1px solid var(--border);
+}
+.badge.openai    { color: #10a37f; border-color: rgba(16,163,127,0.3); }
+.badge.anthropic { color: #d97706; border-color: rgba(217,119,6,0.3); }
+.btn-copy {
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  padding: 5px 10px; border-radius: var(--r); cursor: pointer;
+  font-size: 11px; font-family: inherit; transition: all 0.15s;
+}
+.btn-copy:hover { background: var(--sf2); color: var(--text); }
+
+.resp-prompt {
+  padding: 11px 16px; border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--muted); font-style: italic;
+  background: var(--bg); line-height: 1.55;
+}
+
+/* ── Metrics bar ─────────────────────────────────────────────────── */
+.metrics-bar {
+  display: flex; gap: 20px; flex-wrap: wrap;
+  padding: 9px 16px; border-bottom: 1px solid var(--border);
+  background: rgba(110,86,207,0.04);
+}
+.metric { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.metric-val { font-weight: 600; color: var(--text); font-family: 'SF Mono','Fira Code',monospace; }
+.metric-icon { opacity: 0.7; }
+
+/* ── Response body ───────────────────────────────────────────────── */
+.resp-body {
+  padding: 16px; max-height: 460px; overflow-y: auto;
+  line-height: 1.72; font-size: 14px; white-space: pre-wrap; word-break: break-word;
+}
+.resp-body.json { font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; }
+.resp-error {
+  padding: 16px; color: var(--err); font-size: 13px;
+  display: flex; gap: 10px; line-height: 1.6;
+}
+.resp-error.cors { color: var(--warn); }
+
+/* ── Schema validator ────────────────────────────────────────────── */
+.validator {
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+}
+.validator-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+}
+.validator-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+.validator-summary { font-size: 11px; }
+.validator-summary.all-ok  { color: var(--ok); }
+.validator-summary.has-err { color: var(--err); }
+.validator-summary.has-warn { color: var(--warn); }
+.validator-body { margin-top: 10px; display: none; }
+.validator-body.open { display: block; }
+.v-row {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 4px 0; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.v-row:last-child { border-bottom: none; }
+.v-icon { font-size: 11px; width: 14px; flex-shrink: 0; }
+.v-field { font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; color: var(--text); }
+.v-detail { color: var(--muted); font-size: 11px; }
+.v-ok   .v-icon { color: var(--ok); }
+.v-miss .v-icon { color: var(--err); }
+.v-miss .v-field { color: var(--err); }
+.v-type .v-icon { color: var(--warn); }
+.v-type .v-field { color: var(--warn); }
+.v-extra .v-icon { color: var(--muted); }
+.v-extra .v-field { color: var(--muted); }
+
+/* ── Compare layout ──────────────────────────────────────────────── */
+.compare-cols {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;
+}
+.compare-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--rl); overflow: hidden; }
+.compare-col-hdr {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--sf2); font-size: 12px;
+}
+.compare-col-hdr .badges { display: flex; gap: 6px; }
+.compare-resp { padding: 14px; max-height: 400px; overflow-y: auto; line-height: 1.7; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+.compare-resp.json { font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; }
+.compare-metrics { padding: 8px 14px; border-top: 1px solid var(--border); display: flex; gap: 14px; background: rgba(110,86,207,0.04); }
+.compare-error { padding: 14px; color: var(--err); font-size: 13px; line-height: 1.6; }
+.compare-error.cors { color: var(--warn); }
+
+/* ── Metrics dashboard ───────────────────────────────────────────── */
+.dash-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--rl);
+}
+.dash-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px; cursor: pointer; user-select: none;
+}
+.dash-toggle-l { display: flex; align-items: center; gap: 10px; }
+.dash-title { font-size: 12px; font-weight: 600; }
+.dash-subtitle { font-size: 11px; color: var(--muted); }
+.dash-body { display: none; border-top: 1px solid var(--border); padding: 16px; }
+.dash-body.open { display: block; }
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.dash-stat {
+  background: var(--sf2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px;
+}
+.dash-stat-val { font-size: 22px; font-weight: 700; font-family: 'SF Mono','Fira Code',monospace; margin-bottom: 4px; }
+.dash-stat-lbl { font-size: 11px; color: var(--muted); }
+
+/* ── JSON highlighting ───────────────────────────────────────────── */
+.jk { color: #7dd3fc; }
+.js { color: #86efac; }
+.jn { color: #fda4af; }
+.jb { color: #c4b5fd; }
+.jz { color: var(--muted); }
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+.empty { text-align: center; padding: 52px 24px; color: var(--muted); }
+.empty-icon { font-size: 38px; opacity: 0.35; margin-bottom: 14px; }
+.empty p { font-size: 13px; line-height: 1.65; }
+
+/* ── Misc ────────────────────────────────────────────────────────── */
+#file-upload { display: none; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--sf3); border-radius: 3px; }
+
+@media (max-width: 640px) {
+  main { padding: 16px; }
+  header { padding: 12px 16px; }
+  .logo-sub { display: none; }
+  .compare-cols { grid-template-columns: 1fr; }
+  .compare-models { grid-template-columns: 1fr; }
+  .dash-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <div class="logo-text">LLM Switchboard</div>
+      <div class="logo-sub">OpenAI · Anthropic</div>
+    </div>
+  </div>
+
+  <div class="settings-wrap">
+    <button class="settings-btn" id="settings-btn" onclick="toggleSettings()">
+      <span class="p-dot" id="p-dot"></span>
+      <span id="settings-label">Configure</span>
+      <span class="caret">▾</span>
+    </button>
+
+    <div class="settings-panel" id="settings-panel">
+      <div class="s-sec">
+        <div class="s-lbl">Provider</div>
+        <div class="p-tabs">
+          <button class="p-tab active" id="tab-openai"    onclick="setProvider('openai')">OpenAI</button>
+          <button class="p-tab"        id="tab-anthropic" onclick="setProvider('anthropic')">Anthropic</button>
+        </div>
+      </div>
+      <div class="s-sec">
+        <div class="s-lbl">Model</div>
+        <select id="model-sel" onchange="state.model = this.value; refreshMeta()"></select>
+      </div>
+      <div class="s-sec">
+        <div class="s-lbl">API Key</div>
+        <div class="key-row">
+          <input type="password" id="key-input" placeholder="Paste key…" oninput="handleKeyInput()">
+          <button class="btn-sm" onclick="document.getElementById('file-upload').click()">Upload</button>
+          <input type="file" id="file-upload" accept=".env,.csv,.txt" onchange="handleFileUpload(event)">
+        </div>
+        <div class="key-status" id="key-status">No key set</div>
+      </div>
+      <div class="privacy-note">
+        <span class="pi">🔒</span>
+        <span>Keys stored in memory only, never persisted. Sent exclusively to the selected provider's API. Cleared on tab close.</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<main>
+
+  <!-- CORS notice -->
+  <div class="cors-notice" id="cors-notice">
+    <div class="cors-title">
+      <div class="cors-head">⚠&nbsp; Anthropic — Browser Requests Blocked</div>
+      <button class="btn-link" onclick="toggleProxy()">Show proxy setup ▾</button>
+    </div>
+    <div class="cors-body">Anthropic's API blocks browser-originated requests (CORS). To use Anthropic models, run a local proxy that forwards requests server-side.</div>
+    <pre class="proxy-pre" id="proxy-pre"># Option 1 — Node.js (requires Node 18+)
+npx local-cors-proxy --proxyUrl https://api.anthropic.com --port 8080
+# Then set endpoint to: http://localhost:8080/v1/messages
+
+# Option 2 — Use Anthropic's Workbench at console.anthropic.com
+#             (no CORS issues, full model access, no proxy needed)</pre>
+  </div>
+
+  <!-- Mode toolbar -->
+  <div class="toolbar">
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-unstruct" onclick="setMode('unstructured')">Unstructured</button>
+      <button class="mode-btn"        id="btn-struct"   onclick="setMode('structured')">Structured JSON</button>
+      <button class="mode-btn"        id="btn-compare"  onclick="setMode('compare')">Compare ⇄</button>
+    </div>
+    <div class="mode-desc" id="mode-desc">Free-form text response from the model</div>
+  </div>
+
+  <!-- Prompt -->
+  <div>
+    <div class="sec-hdr">
+      <span class="sec-lbl">Prompt</span>
+      <div class="sec-actions">
+        <select class="ex-sel" id="ex-sel" onchange="loadExample(this.value)">
+          <option value="">— Example prompts —</option>
+          <option value="0">Transformer vs. RNN architecture</option>
+          <option value="1">Explain attention mechanisms</option>
+          <option value="2">Dataset modeling strategy</option>
+          <option value="3">Fine-tuning considerations</option>
+          <option value="4">Emergent capabilities in LLMs</option>
+        </select>
+        <button class="btn-sm" onclick="toggleLibrary()">Library</button>
+        <button class="btn-sm" onclick="toggleSaveForm()">+ Save</button>
+      </div>
+    </div>
+    <textarea class="prompt-area" id="prompt" placeholder="Enter your prompt here…"></textarea>
+
+    <!-- Save form -->
+    <div class="save-form" id="save-form" style="margin-top:8px;">
+      <div class="save-form-row">
+        <input type="text" id="save-name" placeholder="Prompt name…" onkeydown="if(event.key==='Enter')saveToLibrary()">
+        <button class="btn-sm" onclick="saveToLibrary()">Save</button>
+        <button class="btn-sm" onclick="toggleSaveForm()">Cancel</button>
+      </div>
+      <label class="save-cb" id="save-schema-wrap">
+        <input type="checkbox" id="save-schema-cb"> Include current schema
+      </label>
+    </div>
+  </div>
+
+  <!-- Library panel -->
+  <div class="library-panel" id="library-panel">
+    <div class="sec-hdr" style="margin-bottom:0;">
+      <span class="sec-lbl">Prompt Library</span>
+      <input class="lib-search" type="text" id="lib-search" placeholder="Search…" oninput="renderLibrary()" style="width:180px;">
+    </div>
+    <div class="lib-list" id="lib-list">
+      <div class="lib-empty">No saved prompts yet. Write a prompt and click "+ Save".</div>
+    </div>
+  </div>
+
+  <!-- Schema section -->
+  <div class="schema-sec" id="schema-sec">
+    <div class="sec-hdr">
+      <span class="sec-lbl">JSON Schema</span>
+    </div>
+    <div class="pills">
+      <button class="pill" data-t="entity"    onclick="loadTemplate('entity',    this)">Entity Extraction</button>
+      <button class="pill" data-t="sentiment" onclick="loadTemplate('sentiment', this)">Sentiment</button>
+      <button class="pill" data-t="summary"   onclick="loadTemplate('summary',   this)">Summary</button>
+      <button class="pill" data-t="custom"    onclick="loadTemplate('custom',    this)">Custom</button>
+    </div>
+    <textarea class="schema-area" id="schema" oninput="validateSchema()" placeholder='{ "type": "object", "properties": { … } }'></textarea>
+    <div class="schema-msg" id="schema-msg"></div>
+  </div>
+
+  <!-- Compare config -->
+  <div class="compare-cfg" id="compare-cfg">
+    <div class="sec-hdr"><span class="sec-lbl">Compare Models</span></div>
+    <div class="compare-models">
+      <div class="compare-model-slot">
+        <label>Left Model</label>
+        <select id="cmp-left" onchange="state.cmpLeft = parseModelVal(this.value)"></select>
+      </div>
+      <div class="compare-model-slot">
+        <label>Right Model</label>
+        <select id="cmp-right" onchange="state.cmpRight = parseModelVal(this.value)"></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send -->
+  <div class="send-row">
+    <button class="btn-send" id="send-btn" onclick="sendRequest()">
+      <div class="spinner"></div>
+      <span class="send-text">Send →</span>
+    </button>
+    <span class="send-meta" id="send-meta"></span>
+  </div>
+
+  <!-- Response history -->
+  <div>
+    <div class="hist-hdr">
+      <span class="sec-lbl">Response History</span>
+      <button class="btn-link" onclick="clearHistory()" style="font-size:11px;">Clear</button>
+    </div>
+    <div class="hist-tabs" id="hist-tabs"></div>
+    <div id="resp-area">
+      <div class="empty">
+        <div class="empty-icon">⚡</div>
+        <p>No responses yet.<br>Set your API key and send a prompt to get started.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metrics dashboard -->
+  <div class="dash-panel">
+    <div class="dash-toggle" onclick="toggleDash()">
+      <div class="dash-toggle-l">
+        <span class="dash-title">Session Metrics</span>
+        <span class="dash-subtitle" id="dash-sub">No requests yet</span>
+      </div>
+      <span id="dash-caret" style="font-size:10px;color:var(--muted);">▾</span>
+    </div>
+    <div class="dash-body" id="dash-body">
+      <div class="dash-grid" id="dash-grid"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Constants ─────────────────────────────────────────────────────────────────
+const MODELS = {
+  openai:    ['gpt-4o','gpt-4-turbo','gpt-3.5-turbo'],
+  anthropic: ['claude-opus-4-6','claude-sonnet-4-6','claude-haiku-4-5-20251001']
+};
+
+const ALL_MODELS = [
+  ...MODELS.openai.map(m    => ({ provider: 'openai',    model: m })),
+  ...MODELS.anthropic.map(m => ({ provider: 'anthropic', model: m }))
+];
+
+const EXAMPLES = [
+  "Compare the architectural differences between transformer-based language models and recurrent neural networks (RNNs/LSTMs). What are the key trade-offs in terms of parallelism, memory, and long-range dependencies?",
+  "Explain how attention mechanisms work in transformer models. Use a clear analogy to make it intuitive for someone who understands basic neural networks.",
+  "I have a tabular dataset with 10,000 rows, 50 features, and a binary classification target with 15% positive rate. Walk me through the modeling approaches I should consider, and what questions I'd need to answer to choose between them.",
+  "What are the most important practical considerations when fine-tuning a large language model on domain-specific data? Cover data quality, compute trade-offs, and evaluation strategy.",
+  "What are emergent capabilities in large language models, and why do researchers debate whether they're truly emergent or a smooth function of scale? What are the implications either way?"
+];
+
+const SCHEMAS = {
+  entity: {
+    type: "object",
+    properties: {
+      entities: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name:    { type: "string" },
+            type:    { type: "string", enum: ["person","organization","location","concept","technology","other"] },
+            context: { type: "string" }
+          },
+          required: ["name","type"]
+        }
+      },
+      entity_count: { type: "number" }
+    },
+    required: ["entities","entity_count"]
+  },
+  sentiment: {
+    type: "object",
+    properties: {
+      sentiment:   { type: "string", enum: ["positive","negative","neutral","mixed"] },
+      confidence:  { type: "number", minimum: 0, maximum: 1 },
+      reasoning:   { type: "string" },
+      key_phrases: { type: "array", items: { type: "string" } }
+    },
+    required: ["sentiment","confidence","reasoning"]
+  },
+  summary: {
+    type: "object",
+    properties: {
+      title:         { type: "string" },
+      summary:       { type: "string" },
+      key_points:    { type: "array", items: { type: "string" } },
+      tags:          { type: "array", items: { type: "string" } },
+      reading_level: { type: "string", enum: ["beginner","intermediate","advanced"] }
+    },
+    required: ["title","summary","key_points"]
+  },
+  custom: {
+    type: "object",
+    properties: { result: { type: "string" } },
+    required: ["result"]
+  }
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const state = {
+  provider: 'openai',
+  model:    'gpt-4o',
+  mode:     'unstructured',
+  keys:     { openai: '', anthropic: '' },
+  history:  [],  // max 10
+  active:   -1,
+  loading:  false,
+  cmpLeft:  { provider: 'openai', model: 'gpt-4o' },
+  cmpRight: { provider: 'openai', model: 'gpt-4-turbo' },
+  library:  [],  // { id, name, prompt, schema?, ts }
+  metrics:  { requests: 0, totalMs: 0, totalTokens: 0 }
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  populateModels('openai');
+  populateCompareSelects();
+  loadTemplate('entity', document.querySelector('.pill[data-t="entity"]'));
+  refreshMeta();
+  renderDash();
+});
+
+document.addEventListener('click', e => {
+  const panel = document.getElementById('settings-panel');
+  const btn   = document.getElementById('settings-btn');
+  if (!panel.contains(e.target) && !btn.contains(e.target)) panel.classList.remove('open');
+});
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function toggleSettings() {
+  document.getElementById('settings-panel').classList.toggle('open');
+}
+
+function setProvider(p) {
+  state.provider = p;
+  document.getElementById('tab-openai').classList.toggle('active', p === 'openai');
+  document.getElementById('tab-anthropic').classList.toggle('active', p === 'anthropic');
+  populateModels(p);
+  document.getElementById('key-input').value = state.keys[p] || '';
+  updateKeyStatus();
+  const showCors = p === 'anthropic' && state.mode !== 'compare';
+  document.getElementById('cors-notice').style.display = showCors ? 'block' : 'none';
+  refreshMeta();
+}
+
+function populateModels(p) {
+  const sel = document.getElementById('model-sel');
+  sel.innerHTML = MODELS[p].map(m => `<option value="${m}">${m}</option>`).join('');
+  state.model = MODELS[p][0];
+}
+
+function populateCompareSelects() {
+  const opts = ALL_MODELS.map(({ provider: p, model: m }) =>
+    `<option value="${p}:${m}">${p === 'openai' ? 'OpenAI' : 'Anthropic'} — ${m}</option>`
+  ).join('');
+  document.getElementById('cmp-left').innerHTML  = opts;
+  document.getElementById('cmp-right').innerHTML = opts;
+  // Default right to second model
+  document.getElementById('cmp-right').value = 'openai:gpt-4-turbo';
+  state.cmpRight = { provider: 'openai', model: 'gpt-4-turbo' };
+}
+
+function parseModelVal(val) {
+  const [provider, ...rest] = val.split(':');
+  return { provider, model: rest.join(':') };
+}
+
+function refreshMeta() {
+  const p = state.provider;
+  document.getElementById('p-dot').className = `p-dot ${p}`;
+  document.getElementById('settings-label').textContent = `${p === 'openai' ? 'OpenAI' : 'Anthropic'} · ${state.model}`;
+  if (state.mode === 'compare') {
+    document.getElementById('send-meta').textContent = `${state.cmpLeft.model} vs ${state.cmpRight.model}`;
+  } else {
+    document.getElementById('send-meta').textContent = `${p === 'openai' ? 'OpenAI' : 'Anthropic'} · ${state.model}`;
+  }
+}
+
+// ── API keys ──────────────────────────────────────────────────────────────────
+function handleKeyInput() {
+  state.keys[state.provider] = document.getElementById('key-input').value.trim();
+  updateKeyStatus();
+}
+
+function updateKeyStatus() {
+  const el  = document.getElementById('key-status');
+  const key = state.keys[state.provider];
+  if (!key) { el.textContent = 'No key set'; el.className = 'key-status'; return; }
+  const valid = state.provider === 'openai' ? key.startsWith('sk-') : key.startsWith('sk-ant-');
+  el.textContent = valid ? '✓ Key set (format looks valid)' : '⚠ Key set — unexpected format';
+  el.className   = `key-status ${valid ? 'ok' : 'bad'}`;
+}
+
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => parseKeyFile(ev.target.result);
+  r.readAsText(file);
+  e.target.value = '';
+}
+
+function parseKeyFile(content) {
+  let found = 0;
+  const om = content.match(/OPENAI_API_KEY\s*=\s*["']?([^\s"'\n]+)/i);
+  const am = content.match(/ANTHROPIC_API_KEY\s*=\s*["']?([^\s"'\n]+)/i);
+  if (om) { state.keys.openai    = om[1]; found++; }
+  if (am) { state.keys.anthropic = am[1]; found++; }
+  if (!found) {
+    for (const line of content.split('\n')) {
+      const [a, b] = line.split(',').map(s => s.trim().replace(/^["']|["']$/g, ''));
+      if (!b) continue;
+      if (/openai/i.test(a) || (b.startsWith('sk-') && !b.startsWith('sk-ant'))) { state.keys.openai = b; found++; }
+      else if (/anthropic/i.test(a) || b.startsWith('sk-ant'))                    { state.keys.anthropic = b; found++; }
+    }
+  }
+  document.getElementById('key-input').value = state.keys[state.provider] || '';
+  const el = document.getElementById('key-status');
+  el.textContent = found ? `✓ Loaded ${found} key${found > 1 ? 's' : ''} from file` : '⚠ No keys found in file';
+  el.className   = `key-status ${found ? 'ok' : 'bad'}`;
+}
+
+// ── Mode ──────────────────────────────────────────────────────────────────────
+function setMode(m) {
+  state.mode = m;
+  document.getElementById('btn-unstruct').classList.toggle('active', m === 'unstructured');
+  document.getElementById('btn-struct').classList.toggle('active',   m === 'structured');
+  document.getElementById('btn-compare').classList.toggle('active',  m === 'compare');
+  document.getElementById('schema-sec').classList.toggle('visible',  m === 'structured');
+  document.getElementById('compare-cfg').classList.toggle('visible', m === 'compare');
+  document.getElementById('save-schema-wrap').style.display = m === 'structured' ? 'flex' : 'none';
+
+  const corsVisible = state.provider === 'anthropic' && m !== 'compare';
+  document.getElementById('cors-notice').style.display = corsVisible ? 'block' : 'none';
+
+  const descs = {
+    unstructured: 'Free-form text response from the model',
+    structured:   'Response constrained to your JSON schema',
+    compare:      'Send the same prompt to two models simultaneously'
+  };
+  document.getElementById('mode-desc').textContent = descs[m];
+  refreshMeta();
+}
+
+// ── Example prompts ───────────────────────────────────────────────────────────
+function loadExample(idx) {
+  if (idx === '') return;
+  document.getElementById('prompt').value = EXAMPLES[+idx];
+  document.getElementById('ex-sel').value = '';
+}
+
+// ── Schema ────────────────────────────────────────────────────────────────────
+function loadTemplate(name, btn) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('schema').value = JSON.stringify(SCHEMAS[name], null, 2);
+  validateSchema();
+}
+
+function validateSchema() {
+  const el  = document.getElementById('schema');
+  const msg = document.getElementById('schema-msg');
+  try {
+    const parsed = JSON.parse(el.value);
+    if (parsed.type !== 'object') {
+      msg.textContent = '⚠ Root type must be "object"'; msg.className = 'schema-msg bad';
+    } else {
+      msg.textContent = '✓ Valid JSON schema'; msg.className = 'schema-msg ok';
+    }
+  } catch (e) {
+    msg.textContent = `✗ Invalid JSON — ${e.message}`; msg.className = 'schema-msg bad';
+  }
+}
+
+// ── CORS ──────────────────────────────────────────────────────────────────────
+function toggleProxy() { document.getElementById('proxy-pre').classList.toggle('open'); }
+
+// ── Prompt Library ────────────────────────────────────────────────────────────
+function toggleLibrary() { document.getElementById('library-panel').classList.toggle('open'); }
+
+function toggleSaveForm() {
+  const form = document.getElementById('save-form');
+  form.classList.toggle('open');
+  if (form.classList.contains('open')) document.getElementById('save-name').focus();
+  else { document.getElementById('save-name').value = ''; }
+}
+
+function saveToLibrary() {
+  const name   = document.getElementById('save-name').value.trim();
+  const prompt = document.getElementById('prompt').value.trim();
+  if (!name)   { document.getElementById('save-name').focus(); return; }
+  if (!prompt) { alert('Enter a prompt to save.'); return; }
+
+  const includeSchema = document.getElementById('save-schema-cb').checked && state.mode === 'structured';
+  const schema        = includeSchema ? document.getElementById('schema').value : null;
+
+  state.library.unshift({ id: Date.now(), name, prompt, schema, ts: new Date() });
+  renderLibrary();
+  toggleSaveForm();
+  document.getElementById('library-panel').classList.add('open');
+}
+
+function loadFromLibrary(id) {
+  const entry = state.library.find(e => e.id === id);
+  if (!entry) return;
+  document.getElementById('prompt').value = entry.prompt;
+  if (entry.schema) {
+    setMode('structured');
+    document.getElementById('schema').value = entry.schema;
+    validateSchema();
+  }
+  document.getElementById('library-panel').classList.remove('open');
+}
+
+function deleteFromLibrary(id) {
+  state.library = state.library.filter(e => e.id !== id);
+  renderLibrary();
+}
+
+function renderLibrary() {
+  const list   = document.getElementById('lib-list');
+  const query  = document.getElementById('lib-search').value.toLowerCase();
+  const entries = state.library.filter(e => e.name.toLowerCase().includes(query) || e.prompt.toLowerCase().includes(query));
+
+  if (!entries.length) {
+    list.innerHTML = `<div class="lib-empty">${state.library.length ? 'No results.' : 'No saved prompts yet. Write a prompt and click "+ Save".'}</div>`;
+    return;
+  }
+
+  list.innerHTML = entries.map(e => {
+    const preview = e.prompt.slice(0, 70) + (e.prompt.length > 70 ? '…' : '');
+    const tags    = e.schema ? ' · schema included' : '';
+    const ts      = e.ts.toLocaleDateString();
+    return `<div class="lib-entry">
+      <div class="lib-entry-info">
+        <div class="lib-entry-name">${esc(e.name)}</div>
+        <div class="lib-entry-meta">${esc(preview)} · ${ts}${tags}</div>
+      </div>
+      <div class="lib-entry-actions">
+        <button class="btn-sm" onclick="loadFromLibrary(${e.id})">Load</button>
+        <button class="btn-sm" onclick="deleteFromLibrary(${e.id})" style="color:var(--err);">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Send ──────────────────────────────────────────────────────────────────────
+async function sendRequest() {
+  const prompt = document.getElementById('prompt').value.trim();
+  if (!prompt) { alert('Please enter a prompt.'); return; }
+
+  if (state.mode === 'compare') {
+    await sendCompare(prompt);
+    return;
+  }
+
+  const key = state.keys[state.provider];
+  if (!key) {
+    alert(`Set your ${state.provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key in settings.`);
+    toggleSettings(); return;
+  }
+
+  if (state.mode === 'structured') {
+    try { JSON.parse(document.getElementById('schema').value); }
+    catch { alert('Fix the JSON schema before sending.'); return; }
+  }
+
+  setLoading(true);
+  const t0 = performance.now();
+  try {
+    const result  = await callAPI(prompt, key, state.provider, state.model);
+    const elapsed = performance.now() - t0;
+    const entry   = { prompt, provider: state.provider, model: state.model, mode: state.mode,
+                      response: result.text, tokens: result.tokens, elapsed, ts: new Date() };
+    updateMetrics(elapsed, result.tokens?.total ?? 0);
+    push(entry);
+  } catch (err) {
+    push({ prompt, provider: state.provider, model: state.model, mode: state.mode,
+           error: err.message, elapsed: performance.now() - t0, tokens: null, ts: new Date() });
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function sendCompare(prompt) {
+  const { cmpLeft: L, cmpRight: R } = state;
+  const keyL = state.keys[L.provider];
+  const keyR = state.keys[R.provider];
+
+  if (!keyL) { alert(`Set your ${L.provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key for the left model.`); toggleSettings(); return; }
+  if (!keyR) { alert(`Set your ${R.provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key for the right model.`); toggleSettings(); return; }
+
+  const schema = state.mode === 'structured';
+
+  setLoading(true);
+  const t0 = performance.now();
+
+  const [resL, resR] = await Promise.allSettled([
+    callAPI(prompt, keyL, L.provider, L.model),
+    callAPI(prompt, keyR, R.provider, R.model)
+  ]);
+
+  const elapsed = performance.now() - t0;
+  const modeLabel = 'compare';
+
+  const sideOf = (res, side) => {
+    if (res.status === 'fulfilled') {
+      return { provider: side.provider, model: side.model, response: res.value.text, tokens: res.value.tokens, error: null };
+    } else {
+      return { provider: side.provider, model: side.model, response: null, tokens: null, error: res.reason.message };
+    }
+  };
+
+  const entry = {
+    prompt, mode: modeLabel, ts: new Date(), isCompare: true, elapsed,
+    left:  sideOf(resL, L),
+    right: sideOf(resR, R)
+  };
+
+  const totalTok = (entry.left.tokens?.total ?? 0) + (entry.right.tokens?.total ?? 0);
+  updateMetrics(elapsed, totalTok);
+  push(entry);
+  setLoading(false);
+}
+
+function setLoading(v) {
+  state.loading = v;
+  const btn = document.getElementById('send-btn');
+  btn.classList.toggle('loading', v);
+  btn.disabled = v;
+}
+
+// ── API calls ─────────────────────────────────────────────────────────────────
+async function callAPI(prompt, key, provider, model) {
+  return provider === 'openai'
+    ? callOpenAI(prompt, key, model)
+    : callAnthropic(prompt, key, model);
+}
+
+async function callOpenAI(prompt, key, model) {
+  const useStructured = state.mode === 'structured';
+  const body = { model, messages: [{ role: 'user', content: prompt }], max_tokens: 2048 };
+
+  if (useStructured) {
+    body.response_format = {
+      type: 'json_schema',
+      json_schema: { name: 'structured_output', schema: JSON.parse(document.getElementById('schema').value) }
+    };
+  }
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = err?.error?.message || `HTTP ${res.status}`;
+    if (res.status === 401) throw new Error('Invalid API key — check your OpenAI key in settings.');
+    if (res.status === 429) throw new Error('Rate limit exceeded — wait a moment and retry.');
+    if (res.status === 400) throw new Error(`Bad request: ${msg}`);
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  const text = data.choices[0].message.content;
+  const u    = data.usage;
+  const tokens = u ? { prompt: u.prompt_tokens, completion: u.completion_tokens, total: u.total_tokens } : null;
+  return { text, tokens };
+}
+
+async function callAnthropic(prompt, key, model) {
+  const useStructured = state.mode === 'structured';
+  const body = { model, max_tokens: 2048, messages: [{ role: 'user', content: prompt }] };
+
+  if (useStructured) {
+    const schema = JSON.parse(document.getElementById('schema').value);
+    body.tools       = [{ name: 'structured_output', description: 'Return a structured response.', input_schema: schema }];
+    body.tool_choice = { type: 'tool', name: 'structured_output' };
+  }
+
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify(body)
+    });
+  } catch (e) {
+    throw new Error('CORS_BLOCKED');
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = err?.error?.message || `HTTP ${res.status}`;
+    if (res.status === 401) throw new Error('Invalid API key — check your Anthropic key in settings.');
+    if (res.status === 429) throw new Error('Rate limit exceeded — wait a moment and retry.');
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  const u    = data.usage;
+  const tokens = u ? { prompt: u.input_tokens, completion: u.output_tokens, total: (u.input_tokens + u.output_tokens) } : null;
+
+  if (useStructured) {
+    const tool = data.content.find(c => c.type === 'tool_use');
+    if (tool) return { text: JSON.stringify(tool.input, null, 2), tokens };
+  }
+  const textBlock = data.content.find(c => c.type === 'text');
+  return { text: textBlock ? textBlock.text : '', tokens };
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+function push(entry) {
+  state.history.unshift(entry);
+  if (state.history.length > 10) state.history.pop();
+  state.active = 0;
+  renderHistory();
+}
+
+function renderHistory() {
+  const tabs = document.getElementById('hist-tabs');
+  const area = document.getElementById('resp-area');
+
+  if (!state.history.length) {
+    tabs.innerHTML = '';
+    area.innerHTML = `<div class="empty"><div class="empty-icon">⚡</div><p>No responses yet.<br>Set your API key and send a prompt to get started.</p></div>`;
+    return;
+  }
+
+  tabs.innerHTML = state.history.map((h, i) => {
+    const label = h.prompt.slice(0, 28) + (h.prompt.length > 28 ? '…' : '');
+    const cls   = `h-tab${i === state.active ? ' active' : ''}${h.isCompare ? ' compare' : ''}`;
+    return `<button class="${cls}" onclick="setActive(${i})">${esc(label)}</button>`;
+  }).join('');
+
+  const h = state.history[state.active];
+  area.innerHTML = h.isCompare ? renderCompareCard(h) : renderCard(h, state.active);
+}
+
+function setActive(i) { state.active = i; renderHistory(); }
+
+// ── Response card (single) ────────────────────────────────────────────────────
+function renderCard(h, i) {
+  const pBadge  = `<span class="badge ${h.provider}">${h.model}</span>`;
+  const mBadge  = `<span class="badge">${h.mode === 'structured' ? 'JSON' : 'Text'}</span>`;
+  const preview = esc(h.prompt.length > 200 ? h.prompt.slice(0, 200) + '…' : h.prompt);
+
+  let body;
+  if (h.error) {
+    const isCors = h.error === 'CORS_BLOCKED';
+    body = `<div class="resp-error${isCors ? ' cors' : ''}">
+      <span>${isCors ? '⚠' : '✗'}</span>
+      <div>${isCors ? 'Anthropic blocks browser requests (CORS policy). See the notice at the top for proxy setup.' : esc(h.error)}</div>
+    </div>`;
+  } else if (h.mode === 'structured') {
+    try {
+      body = `<div class="resp-body json">${highlightJSON(JSON.stringify(JSON.parse(h.response), null, 2))}</div>`;
+    } catch {
+      body = `<div class="resp-body json">${esc(h.response)}</div>`;
+    }
+  } else {
+    body = `<div class="resp-body">${esc(h.response)}</div>`;
+  }
+
+  const metrics = renderMetricsBar(h);
+  const validator = (h.mode === 'structured' && !h.error) ? renderValidator(h) : '';
+
+  return `<div class="resp-card">
+    <div class="resp-meta">
+      <div class="resp-meta-l">${pBadge}${mBadge}<span>${h.ts.toLocaleTimeString()}</span></div>
+      <button class="btn-copy" onclick="copyEntry(${i})">Copy</button>
+    </div>
+    ${metrics}
+    <div class="resp-prompt">${preview}</div>
+    ${body}
+    ${validator}
+  </div>`;
+}
+
+// ── Compare card ──────────────────────────────────────────────────────────────
+function renderCompareCard(h) {
+  const preview = esc(h.prompt.length > 200 ? h.prompt.slice(0, 200) + '…' : h.prompt);
+  const timeBadge = `<span class="metric"><span class="metric-icon">⏱</span><span class="metric-val">${fmtMs(h.elapsed)}</span></span>`;
+
+  const colHtml = (side, label) => {
+    const badges = `<div class="badges"><span class="badge ${side.provider}">${side.model}</span></div>`;
+    let body;
+    if (side.error) {
+      const isCors = side.error === 'CORS_BLOCKED';
+      body = `<div class="compare-error${isCors ? ' cors' : ''}">${isCors ? '⚠ Anthropic CORS blocked — see proxy setup at top.' : esc(side.error)}</div>`;
+    } else {
+      const isJson = h.mode === 'structured' || (side.response && side.response.trim().startsWith('{'));
+      try {
+        body = isJson
+          ? `<div class="compare-resp json">${highlightJSON(JSON.stringify(JSON.parse(side.response), null, 2))}</div>`
+          : `<div class="compare-resp">${esc(side.response)}</div>`;
+      } catch {
+        body = `<div class="compare-resp">${esc(side.response)}</div>`;
+      }
+    }
+
+    const tokStr = side.tokens ? `${side.tokens.total} tok` : '—';
+    const chStr  = side.response ? `${side.response.length.toLocaleString()} ch` : '—';
+    const metrics = `<div class="compare-metrics">
+      <span class="metric"><span class="metric-icon">🔢</span><span class="metric-val">${tokStr}</span></span>
+      <span class="metric"><span class="metric-icon">📄</span><span class="metric-val">${chStr}</span></span>
+    </div>`;
+
+    return `<div class="compare-col">
+      <div class="compare-col-hdr">${badges}${timeBadge}</div>
+      ${body}
+      ${metrics}
+    </div>`;
+  };
+
+  return `<div class="resp-card">
+    <div class="resp-meta">
+      <div class="resp-meta-l"><span class="badge">⇄ Compare</span><span>${h.ts.toLocaleTimeString()}</span></div>
+    </div>
+    <div class="resp-prompt">${preview}</div>
+    <div style="padding: 12px 16px;">
+      <div class="compare-cols">
+        ${colHtml(h.left, 'Left')}
+        ${colHtml(h.right, 'Right')}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Metrics bar ───────────────────────────────────────────────────────────────
+function renderMetricsBar(h) {
+  const timeStr = h.elapsed != null ? fmtMs(h.elapsed) : '—';
+  const tokStr  = h.tokens  ? `${h.tokens.total.toLocaleString()}` : '—';
+  const chStr   = h.response ? h.response.length.toLocaleString() : '—';
+  const ptStr   = h.tokens  ? `${h.tokens.prompt} in / ${h.tokens.completion} out` : '';
+
+  return `<div class="metrics-bar">
+    <span class="metric"><span class="metric-icon">⏱</span><span class="metric-val">${timeStr}</span><span>response time</span></span>
+    <span class="metric"><span class="metric-icon">🔢</span><span class="metric-val">${tokStr}</span><span>tokens${ptStr ? ` (${ptStr})` : ''}</span></span>
+    <span class="metric"><span class="metric-icon">📄</span><span class="metric-val">${chStr}</span><span>characters</span></span>
+  </div>`;
+}
+
+function fmtMs(ms) {
+  return ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${Math.round(ms)}ms`;
+}
+
+// ── Schema Validator ──────────────────────────────────────────────────────────
+function renderValidator(h) {
+  let parsed;
+  try { parsed = JSON.parse(h.response); } catch { return ''; }
+
+  let schema;
+  try { schema = JSON.parse(document.getElementById('schema').value); } catch { return ''; }
+
+  const results = validateAgainstSchema(parsed, schema);
+  const required = schema.required || [];
+  const reqTotal = required.length;
+  const reqOk    = results.filter(r => required.includes(r.field) && r.status === 'ok').length;
+  const hasMiss  = results.some(r => r.status === 'missing');
+  const hasWrong = results.some(r => r.status === 'wrong_type' || r.status === 'wrong_enum');
+
+  const summaryClass = hasMiss ? 'has-err' : hasWrong ? 'has-warn' : 'all-ok';
+  const summaryText  = hasMiss
+    ? `${reqOk}/${reqTotal} required fields present`
+    : hasWrong
+    ? `${reqTotal}/${reqTotal} present, type warnings`
+    : `${reqTotal}/${reqTotal} required fields valid ✓`;
+
+  const rowsHtml = results.map(r => {
+    const cls = { ok: 'v-ok', missing: 'v-miss', wrong_type: 'v-type', wrong_enum: 'v-type', absent: 'v-extra', unexpected: 'v-extra' }[r.status] || '';
+    const icon = { ok: '✓', missing: '✗', wrong_type: '⚠', wrong_enum: '⚠', absent: '○', unexpected: '+' }[r.status] || '?';
+    let detail = '';
+    if (r.status === 'missing')     detail = `missing${r.required ? ' (required)' : ''}`;
+    if (r.status === 'wrong_type')  detail = `expected ${r.expected}, got ${r.actual}`;
+    if (r.status === 'wrong_enum')  detail = `expected one of: ${r.expected}`;
+    if (r.status === 'absent')      detail = 'optional, not present';
+    if (r.status === 'unexpected')  detail = 'not in schema';
+
+    return `<div class="v-row ${cls}">
+      <span class="v-icon">${icon}</span>
+      <span class="v-field">${esc(r.field)}</span>
+      <span class="v-detail">${detail}</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="validator">
+    <div class="validator-toggle" onclick="this.nextElementSibling.classList.toggle('open'); this.querySelector('.v-caret').textContent = this.nextElementSibling.classList.contains('open') ? '▴' : '▾';">
+      <span class="validator-title">Schema Compliance</span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span class="validator-summary ${summaryClass}">${summaryText}</span>
+        <span class="v-caret" style="font-size:10px;color:var(--muted);">▾</span>
+      </span>
+    </div>
+    <div class="validator-body">${rowsHtml}</div>
+  </div>`;
+}
+
+function validateAgainstSchema(obj, schema) {
+  const properties = schema.properties || {};
+  const required   = schema.required   || [];
+  const results    = [];
+
+  for (const [field, propSchema] of Object.entries(properties)) {
+    if (!(field in obj)) {
+      results.push({ field, status: required.includes(field) ? 'missing' : 'absent', required: required.includes(field) });
+      continue;
+    }
+    const val      = obj[field];
+    const actual   = jsType(val);
+    const expected = propSchema.type;
+
+    if (expected && actual !== expected) {
+      results.push({ field, status: 'wrong_type', expected, actual, required: required.includes(field) });
+    } else if (propSchema.enum && !propSchema.enum.includes(val)) {
+      results.push({ field, status: 'wrong_enum', expected: propSchema.enum.join(' | '), actual: String(val), required: required.includes(field) });
+    } else {
+      results.push({ field, status: 'ok', required: required.includes(field) });
+    }
+  }
+
+  // Unexpected fields
+  for (const field of Object.keys(obj)) {
+    if (!(field in properties)) results.push({ field, status: 'unexpected' });
+  }
+
+  return results;
+}
+
+function jsType(val) {
+  if (val === null)         return 'null';
+  if (Array.isArray(val))   return 'array';
+  return typeof val;
+}
+
+// ── Copy ──────────────────────────────────────────────────────────────────────
+function copyEntry(i) {
+  const h    = state.history[i];
+  const text = h.error ? `Error: ${h.error}` : h.response;
+  navigator.clipboard.writeText(text).then(() => {
+    document.querySelectorAll('.btn-copy').forEach(b => {
+      b.textContent = '✓ Copied';
+      setTimeout(() => { b.textContent = 'Copy'; }, 1500);
+    });
+  });
+}
+
+function clearHistory() {
+  state.history = [];
+  state.active  = -1;
+  renderHistory();
+}
+
+// ── Metrics dashboard ─────────────────────────────────────────────────────────
+function updateMetrics(elapsedMs, tokens) {
+  state.metrics.requests++;
+  state.metrics.totalMs     += elapsedMs;
+  state.metrics.totalTokens += tokens;
+  renderDash();
+}
+
+function renderDash() {
+  const m = state.metrics;
+  const sub = document.getElementById('dash-sub');
+  if (!m.requests) { sub.textContent = 'No requests yet'; return; }
+
+  const avgMs  = m.totalMs / m.requests;
+  sub.textContent = `${m.requests} request${m.requests > 1 ? 's' : ''} · avg ${fmtMs(avgMs)}`;
+
+  document.getElementById('dash-grid').innerHTML = `
+    <div class="dash-stat">
+      <div class="dash-stat-val" style="color:var(--accent);">${m.requests}</div>
+      <div class="dash-stat-lbl">Total Requests</div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-val" style="color:var(--ok);">${fmtMs(avgMs)}</div>
+      <div class="dash-stat-lbl">Avg Response Time</div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-val" style="color:var(--warn);">${fmtMs(m.totalMs)}</div>
+      <div class="dash-stat-lbl">Total Time Spent</div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-val" style="color:#7dd3fc;">${m.totalTokens ? m.totalTokens.toLocaleString() : '—'}</div>
+      <div class="dash-stat-lbl">Total Tokens Used</div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-val" style="color:#fda4af;">${m.totalTokens ? (m.totalTokens / m.requests).toFixed(0) : '—'}</div>
+      <div class="dash-stat-lbl">Avg Tokens / Request</div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-val" style="color:var(--muted);">${state.library.length}</div>
+      <div class="dash-stat-lbl">Saved Prompts</div>
+    </div>
+  `;
+}
+
+function toggleDash() {
+  document.getElementById('dash-body').classList.toggle('open');
+  document.getElementById('dash-caret').textContent =
+    document.getElementById('dash-body').classList.contains('open') ? '▴' : '▾';
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function highlightJSON(json) {
+  return esc(json).replace(
+    /("(\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*")(\s*:)?|(-?\d+\.?\d*(?:[eE][+-]?\d+)?)|(\btrue\b|\bfalse\b)|\bnull\b/g,
+    (m, str, _s2, colon, num, bool) => {
+      if (str && colon) return `<span class="jk">${str}</span>${colon}`;
+      if (str)  return `<span class="js">${str}</span>`;
+      if (num)  return `<span class="jn">${m}</span>`;
+      if (bool) return `<span class="jb">${m}</span>`;
+      return `<span class="jz">${m}</span>`;
+    }
+  );
+}
+</script>
+</body>
+</html>
