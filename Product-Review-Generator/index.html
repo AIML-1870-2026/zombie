@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Review Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0f0f13;
+  --surface: #1a1a24;
+  --sf2:     #252535;
+  --sf3:     #2e2e45;
+  --accent:  #6e56cf;
+  --acc-h:   #7c65d9;
+  --text:    #e8e8f0;
+  --muted:   #8888aa;
+  --ok:      #4ade80;
+  --err:     #f87171;
+  --border:  #2e2e45;
+  --r:       8px;
+  --rl:      12px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 32px; height: 32px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: grid; place-items: center;
+  font-size: 17px;
+}
+.logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+.logo-sub  { font-size: 11px; color: var(--muted); }
+
+/* ── Settings dropdown ────────────────────────────────────────────────── */
+.settings-wrap { position: relative; }
+
+.settings-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--sf2); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 14px; border-radius: var(--r);
+  cursor: pointer; font-size: 13px; transition: background 0.15s;
+  font-family: inherit;
+}
+.settings-btn:hover { background: var(--sf3); }
+.model-chip {
+  background: rgba(110,86,207,0.18); color: var(--acc-h);
+  border-radius: 4px; padding: 1px 6px; font-size: 12px; font-weight: 600;
+}
+.caret { font-size: 9px; color: var(--muted); }
+
+.settings-panel {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  width: 270px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--rl);
+  padding: 18px; box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+  z-index: 200; display: none;
+}
+.settings-panel.open { display: block; }
+
+.s-sec { margin-bottom: 14px; }
+.s-sec:last-child { margin-bottom: 0; }
+.s-lbl {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--muted); margin-bottom: 6px;
+}
+
+select {
+  width: 100%; background: var(--sf2); border: 1px solid var(--border);
+  color: var(--text); padding: 9px 12px; border-radius: var(--r);
+  font-size: 13px; font-family: inherit; outline: none;
+  transition: border-color 0.15s; cursor: pointer;
+}
+select:focus { border-color: var(--accent); }
+
+.key-row { display: flex; gap: 8px; margin-bottom: 6px; }
+.key-row input { flex: 1; font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; }
+.btn-sm {
+  background: var(--sf2); border: 1px solid var(--border); color: var(--muted);
+  padding: 9px 12px; border-radius: var(--r); cursor: pointer;
+  font-size: 12px; white-space: nowrap; transition: all 0.15s; font-family: inherit;
+}
+.btn-sm:hover { background: var(--sf3); color: var(--text); }
+.key-status { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.key-status.ok  { color: var(--ok); }
+.key-status.bad { color: var(--err); }
+.privacy-note {
+  display: flex; gap: 8px; background: rgba(110,86,207,0.08);
+  border: 1px solid rgba(110,86,207,0.25); border-radius: var(--r);
+  padding: 10px 12px; font-size: 11px; color: var(--muted); line-height: 1.6;
+  margin-top: 12px;
+}
+.privacy-note .pi { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── Main layout ──────────────────────────────────────────────────────── */
+main {
+  flex: 1;
+  max-width: 1120px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 28px 24px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* ── Controls panel ───────────────────────────────────────────────────── */
+.controls-panel { display: flex; flex-direction: column; gap: 14px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--rl);
+  padding: 18px;
+}
+.card-title {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--muted); margin-bottom: 14px;
+}
+
+/* ── Form fields ──────────────────────────────────────────────────────── */
+.field { margin-bottom: 12px; }
+.field:last-child { margin-bottom: 0; }
+.field label {
+  display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;
+}
+.optional { color: var(--sf3); font-size: 11px; }
+
+input[type="text"], textarea {
+  width: 100%; background: var(--sf2); border: 1px solid var(--border);
+  color: var(--text); padding: 9px 12px; border-radius: var(--r);
+  font-size: 13px; font-family: inherit; outline: none;
+  transition: border-color 0.15s; resize: vertical;
+}
+input[type="text"]:focus, textarea:focus { border-color: var(--accent); }
+textarea { min-height: 68px; }
+
+/* ── Aspect sliders ───────────────────────────────────────────────────── */
+.aspect { margin-bottom: 18px; }
+.aspect:last-child { margin-bottom: 0; }
+
+.aspect-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.aspect-label { font-size: 13px; }
+.val-badge {
+  font-size: 11px; font-weight: 600;
+  background: rgba(110,86,207,0.15); color: var(--acc-h);
+  border-radius: 4px; padding: 2px 8px;
+  min-width: 90px; text-align: center;
+  transition: background 0.2s;
+}
+.val-badge.negative { background: rgba(248,113,113,0.15); color: #f87171; }
+.val-badge.positive { background: rgba(74,222,128,0.15); color: #4ade80; }
+.val-badge.neutral  { background: rgba(136,136,170,0.12); color: var(--muted); }
+
+.aspect-ticks {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--muted); margin-top: 4px;
+  padding: 0 1px;
+}
+
+/* ── Style sliders ────────────────────────────────────────────────────── */
+.style-slider { margin-bottom: 18px; }
+.style-slider:last-child { margin-bottom: 0; }
+
+.style-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.style-label { font-size: 13px; }
+
+.style-ticks {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--muted); margin-top: 4px;
+  padding: 0 1px;
+}
+
+/* ── Range input ──────────────────────────────────────────────────────── */
+input[type="range"] {
+  width: 100%; -webkit-appearance: none; appearance: none;
+  height: 4px; background: var(--sf3); border-radius: 2px;
+  outline: none; cursor: pointer; padding: 0; display: block;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px;
+  background: var(--accent); border-radius: 50%;
+  cursor: pointer; transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 0 0 3px rgba(110,86,207,0.2);
+}
+input[type="range"]::-webkit-slider-thumb:hover { background: var(--acc-h); }
+input[type="range"]:focus::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(110,86,207,0.35); }
+input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px;
+  background: var(--accent); border-radius: 50%; border: none;
+  cursor: pointer;
+}
+
+/* ── Generate button ──────────────────────────────────────────────────── */
+.btn-generate {
+  width: 100%; padding: 12px 20px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: var(--r);
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: background 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 2px;
+}
+.btn-generate:hover:not(:disabled) { background: var(--acc-h); }
+.btn-generate:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.spinner {
+  width: 14px; height: 14px; flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%; display: none;
+  animation: spin 0.7s linear infinite;
+}
+.btn-generate.loading .spinner { display: block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Output panel ─────────────────────────────────────────────────────── */
+.output-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--rl);
+  overflow: hidden;
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 80px;
+}
+
+.output-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--sf2);
+  flex-shrink: 0;
+}
+.sec-lbl {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--muted);
+}
+.output-meta { display: flex; align-items: center; gap: 8px; }
+
+.btn-copy {
+  background: var(--sf3); border: 1px solid var(--border);
+  color: var(--muted); padding: 5px 10px; border-radius: var(--r);
+  cursor: pointer; font-size: 11px; transition: all 0.15s;
+  font-family: inherit; display: none;
+}
+.btn-copy:hover { background: var(--sf2); color: var(--text); }
+.btn-copy.copied { color: var(--ok); border-color: var(--ok); }
+
+#output-area { flex: 1; overflow-y: auto; }
+
+/* ── Empty state ──────────────────────────────────────────────────────── */
+.empty {
+  text-align: center; padding: 64px 24px; color: var(--muted);
+}
+.empty-icon { font-size: 40px; opacity: 0.25; margin-bottom: 14px; }
+.empty p { font-size: 13px; line-height: 1.7; max-width: 240px; margin: 0 auto; }
+
+/* ── Review content (rendered markdown) ──────────────────────────────── */
+.review-content {
+  padding: 22px 24px;
+  line-height: 1.78;
+  font-size: 14px;
+  color: var(--text);
+}
+.review-content h1, .review-content h2, .review-content h3 {
+  margin: 1.1em 0 0.45em; color: var(--text); line-height: 1.3;
+}
+.review-content h1 { font-size: 17px; }
+.review-content h2 { font-size: 15px; }
+.review-content h3 { font-size: 14px; font-weight: 600; }
+.review-content p { margin-bottom: 0.9em; }
+.review-content p:last-child { margin-bottom: 0; }
+.review-content ul, .review-content ol {
+  padding-left: 22px; margin-bottom: 0.9em;
+}
+.review-content li { margin-bottom: 0.35em; line-height: 1.65; }
+.review-content strong { color: #fff; }
+.review-content em { color: #b0b0cc; }
+.review-content hr {
+  border: none; border-top: 1px solid var(--border); margin: 1.2em 0;
+}
+.review-content blockquote {
+  border-left: 3px solid var(--accent); padding-left: 14px;
+  color: var(--muted); margin: 0.8em 0; font-style: italic;
+}
+.review-content code {
+  background: var(--sf2); border-radius: 4px; padding: 2px 5px;
+  font-size: 12px; font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+/* ── Usage bar ────────────────────────────────────────────────────────── */
+.usage-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 24px 12px;
+  font-size: 11px; color: var(--muted);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Generating / error states ────────────────────────────────────────── */
+.generating {
+  padding: 64px 24px; text-align: center;
+  color: var(--muted); font-size: 13px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.gen-spinner {
+  width: 24px; height: 24px;
+  border: 2px solid var(--sf3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.error-msg {
+  padding: 22px 24px; color: var(--err); font-size: 13px; line-height: 1.65;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--sf3); border-radius: 3px; }
+
+/* ── Mobile ───────────────────────────────────────────────────────────── */
+@media (max-width: 780px) {
+  .layout { grid-template-columns: 1fr; }
+  .output-panel { position: static; min-height: 320px; }
+  main { padding: 16px; }
+  header { padding: 12px 16px; }
+  .logo-sub { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">★</div>
+    <div>
+      <div class="logo-text">Product Review Generator</div>
+      <div class="logo-sub">Powered by OpenAI</div>
+    </div>
+  </div>
+
+  <div class="settings-wrap">
+    <button class="settings-btn" id="settings-btn" onclick="toggleSettings()">
+      <span class="model-chip" id="model-display">gpt-4o</span>
+      <span class="caret">▾</span>
+    </button>
+
+    <div class="settings-panel" id="settings-panel">
+      <div class="s-sec">
+        <div class="s-lbl">Model</div>
+        <select id="model-sel" onchange="state.model = this.value; document.getElementById('model-display').textContent = this.value;">
+          <option value="gpt-4o">gpt-4o</option>
+          <option value="gpt-4-turbo">gpt-4-turbo</option>
+          <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+        </select>
+      </div>
+      <div class="s-sec">
+        <div class="s-lbl">API Key</div>
+        <div class="key-row">
+          <input type="password" id="key-input" placeholder="Paste key…" oninput="handleKeyInput()">
+          <button class="btn-sm" onclick="document.getElementById('file-upload').click()">Upload</button>
+          <input type="file" id="file-upload" accept=".env,.txt" style="display:none" onchange="handleFileUpload(event)">
+        </div>
+        <div class="key-status" id="key-status">No key set</div>
+      </div>
+      <div class="privacy-note">
+        <span class="pi">🔒</span>
+        <span>Key stored in memory only, never persisted. Sent exclusively to OpenAI. Cleared on tab close.</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<main>
+  <div class="layout">
+
+    <!-- Controls -->
+    <div class="controls-panel">
+
+      <!-- Product -->
+      <div class="card">
+        <div class="card-title">Product</div>
+        <div class="field">
+          <label for="product-name">Product Name *</label>
+          <input type="text" id="product-name" placeholder="e.g. Sony WH-1000XM5 Headphones" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="product-desc">Description <span class="optional">(optional)</span></label>
+          <textarea id="product-desc" placeholder="Brief product details, key specs, or context…"></textarea>
+        </div>
+      </div>
+
+      <!-- Sentiment -->
+      <div class="card">
+        <div class="card-title">Sentiment</div>
+
+        <div class="aspect">
+          <div class="aspect-header">
+            <span class="aspect-label">Price / Value</span>
+            <span class="val-badge neutral" id="price-badge">Neutral</span>
+          </div>
+          <input type="range" min="-2" max="2" value="0" step="1" id="price-slider"
+                 oninput="updateAspect('price', this.value)">
+          <div class="aspect-ticks"><span>Very Negative</span><span>Very Positive</span></div>
+        </div>
+
+        <div class="aspect">
+          <div class="aspect-header">
+            <span class="aspect-label">Features</span>
+            <span class="val-badge neutral" id="features-badge">Neutral</span>
+          </div>
+          <input type="range" min="-2" max="2" value="0" step="1" id="features-slider"
+                 oninput="updateAspect('features', this.value)">
+          <div class="aspect-ticks"><span>Very Negative</span><span>Very Positive</span></div>
+        </div>
+
+        <div class="aspect">
+          <div class="aspect-header">
+            <span class="aspect-label">Usability</span>
+            <span class="val-badge neutral" id="usability-badge">Neutral</span>
+          </div>
+          <input type="range" min="-2" max="2" value="0" step="1" id="usability-slider"
+                 oninput="updateAspect('usability', this.value)">
+          <div class="aspect-ticks"><span>Very Negative</span><span>Very Positive</span></div>
+        </div>
+
+        <div class="aspect">
+          <div class="aspect-header">
+            <span class="aspect-label">Design / Build</span>
+            <span class="val-badge neutral" id="design-badge">Neutral</span>
+          </div>
+          <input type="range" min="-2" max="2" value="0" step="1" id="design-slider"
+                 oninput="updateAspect('design', this.value)">
+          <div class="aspect-ticks"><span>Very Negative</span><span>Very Positive</span></div>
+        </div>
+      </div>
+
+      <!-- Style -->
+      <div class="card">
+        <div class="card-title">Style</div>
+
+        <div class="style-slider">
+          <div class="style-header">
+            <span class="style-label">Tone</span>
+            <span class="val-badge neutral" id="tone-badge">Balanced</span>
+          </div>
+          <input type="range" min="0" max="10" value="5" step="1" id="tone-slider"
+                 oninput="updateStyle('tone', this.value)">
+          <div class="style-ticks"><span>Professional</span><span>Casual</span></div>
+        </div>
+
+        <div class="style-slider">
+          <div class="style-header">
+            <span class="style-label">Length</span>
+            <span class="val-badge neutral" id="length-badge">Medium</span>
+          </div>
+          <input type="range" min="0" max="10" value="5" step="1" id="length-slider"
+                 oninput="updateStyle('length', this.value)">
+          <div class="style-ticks"><span>Brief</span><span>Detailed</span></div>
+        </div>
+      </div>
+
+      <button class="btn-generate" id="generate-btn" onclick="generate()">
+        <div class="spinner"></div>
+        <span id="generate-label">Generate Review</span>
+      </button>
+    </div>
+
+    <!-- Output -->
+    <div class="output-panel">
+      <div class="output-header">
+        <span class="sec-lbl">Generated Review</span>
+        <div class="output-meta">
+          <button class="btn-copy" id="copy-btn" onclick="copyReview()">Copy</button>
+        </div>
+      </div>
+      <div id="output-area">
+        <div class="empty">
+          <div class="empty-icon">★</div>
+          <p>Configure your product and click Generate to create a review.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+const state = {
+  model:    'gpt-4o',
+  key:      '',
+  aspects:  { price: 0, features: 0, usability: 0, design: 0 },
+  tone:     5,
+  length:   5,
+  loading:  false,
+  lastText: ''
+};
+
+// ── Label maps ────────────────────────────────────────────────────────────────
+const ASPECT_LABELS = ['Very Negative', 'Negative', 'Neutral', 'Positive', 'Very Positive'];
+
+const ASPECT_PHRASES = {
+  price:     ['terrible value for money', 'below-average value', 'fair value', 'good value for money', 'exceptional value for money'],
+  features:  ['severely lacking features', 'somewhat lacking features', 'adequate features', 'feature-rich', 'outstanding feature set'],
+  usability: ['very difficult to use', 'somewhat difficult to use', 'average usability', 'easy to use', 'extremely intuitive and easy to use'],
+  design:    ['very poor build quality and design', 'below-average design', 'average design and build quality', 'well-designed and well-built', 'beautifully designed and impeccably built']
+};
+
+function getToneLabel(v) {
+  if (v <= 1) return 'Very Professional';
+  if (v <= 3) return 'Professional';
+  if (v === 4) return 'Somewhat Formal';
+  if (v === 5) return 'Balanced';
+  if (v === 6) return 'Somewhat Casual';
+  if (v <= 8) return 'Casual';
+  return 'Very Casual';
+}
+
+function getLengthLabel(v) {
+  if (v <= 1) return 'Very Brief';
+  if (v <= 3) return 'Brief';
+  if (v === 4) return 'Short';
+  if (v === 5) return 'Medium';
+  if (v === 6) return 'Moderate';
+  if (v <= 8) return 'Detailed';
+  return 'Very Detailed';
+}
+
+// ── Slider updates ────────────────────────────────────────────────────────────
+function updateAspect(aspect, raw) {
+  const v = parseInt(raw);
+  state.aspects[aspect] = v;
+  const badge = document.getElementById(`${aspect}-badge`);
+  badge.textContent = ASPECT_LABELS[v + 2];
+  badge.className = 'val-badge ' + (v < 0 ? 'negative' : v > 0 ? 'positive' : 'neutral');
+}
+
+function updateStyle(type, raw) {
+  const v = parseInt(raw);
+  state[type] = v;
+  const badge = document.getElementById(`${type}-badge`);
+  badge.textContent = type === 'tone' ? getToneLabel(v) : getLengthLabel(v);
+  badge.className = 'val-badge neutral';
+}
+
+// ── Prompt construction ───────────────────────────────────────────────────────
+function buildPrompt() {
+  const product = document.getElementById('product-name').value.trim();
+  const desc    = document.getElementById('product-desc').value.trim();
+  if (!product) return null;
+
+  const aspectLines = Object.entries(state.aspects)
+    .map(([k, v]) => `- ${capitalize(k)}: ${ASPECT_PHRASES[k][v + 2]}`)
+    .join('\n');
+
+  const toneDesc   = getToneLabel(state.tone).toLowerCase();
+  const lengthDesc = getLengthLabel(state.length).toLowerCase();
+
+  const lengthGuide = state.length <= 1 ? '1–2 sentences'
+    : state.length <= 3 ? '1 short paragraph'
+    : state.length <= 4 ? '1 full paragraph'
+    : state.length === 5 ? '2–3 paragraphs'
+    : state.length <= 7 ? '3–4 paragraphs'
+    : state.length <= 9 ? '4–5 paragraphs with pros/cons'
+    : '5+ paragraphs with thorough pros/cons breakdown';
+
+  return `Generate a realistic customer product review for: "${product}"${desc ? `\n\nProduct details: ${desc}` : ''}
+
+Sentiment breakdown (reflect each independently — they may conflict to create nuance):
+${aspectLines}
+
+Style requirements:
+- Tone: ${toneDesc}
+- Length: ${lengthDesc} (approximately ${lengthGuide})
+- Write as a genuine customer review — first-person, authentic voice
+- Use markdown formatting where natural (bold for emphasis, bullet points for pros/cons if length warrants it)
+- Do not start with "Review:" or a heading — begin directly with the review content`;
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────────
+async function generate() {
+  const product = document.getElementById('product-name').value.trim();
+  if (!product) {
+    document.getElementById('product-name').focus();
+    document.getElementById('product-name').style.borderColor = 'var(--err)';
+    setTimeout(() => document.getElementById('product-name').style.borderColor = '', 1200);
+    return;
+  }
+
+  if (!state.key) {
+    toggleSettings();
+    const el = document.getElementById('key-input');
+    el.focus();
+    el.style.borderColor = 'var(--err)';
+    setTimeout(() => el.style.borderColor = '', 1400);
+    return;
+  }
+
+  const prompt = buildPrompt();
+  setLoading(true);
+
+  const outputArea = document.getElementById('output-area');
+  outputArea.innerHTML = `<div class="generating">
+    <div class="gen-spinner"></div>
+    <span>Generating review…</span>
+  </div>`;
+  document.getElementById('copy-btn').style.display = 'none';
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.key}` },
+      body: JSON.stringify({
+        model: state.model,
+        messages: [
+          { role: 'system', content: 'You are an expert product reviewer. Write authentic, helpful product reviews based on the specified sentiment, tone, and length requirements. Use markdown formatting appropriately (bold for emphasis, bullet points for pros/cons when suitable).' },
+          { role: 'user',   content: prompt }
+        ],
+        max_tokens: 1024
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err?.error?.message || `HTTP ${res.status}`;
+      if (res.status === 401) throw new Error('Invalid API key — check your OpenAI key in settings.');
+      if (res.status === 429) throw new Error('Rate limit exceeded — wait a moment and retry.');
+      throw new Error(msg);
+    }
+
+    const data = await res.json();
+    state.lastText = data.choices[0].message.content;
+    const u = data.usage;
+
+    const rendered = marked.parse(state.lastText);
+    let html = `<div class="review-content">${rendered}</div>`;
+    if (u) {
+      html += `<div class="usage-bar">
+        <span>${esc(state.model)}</span>
+        <span>${u.prompt_tokens}+${u.completion_tokens} = ${u.total_tokens} tokens</span>
+      </div>`;
+    }
+
+    outputArea.innerHTML = html;
+    const copyBtn = document.getElementById('copy-btn');
+    copyBtn.style.display = 'inline-block';
+    copyBtn.textContent = 'Copy';
+    copyBtn.className = 'btn-copy';
+  } catch (err) {
+    outputArea.innerHTML = `<div class="error-msg">✗ ${esc(err.message)}</div>`;
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── Copy ──────────────────────────────────────────────────────────────────────
+async function copyReview() {
+  if (!state.lastText) return;
+  try {
+    await navigator.clipboard.writeText(state.lastText);
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.className = 'btn-copy copied';
+    setTimeout(() => { btn.textContent = 'Copy'; btn.className = 'btn-copy'; }, 1800);
+  } catch (e) { /* ignore */ }
+}
+
+// ── Loading state ─────────────────────────────────────────────────────────────
+function setLoading(v) {
+  state.loading = v;
+  const btn = document.getElementById('generate-btn');
+  btn.classList.toggle('loading', v);
+  btn.disabled = v;
+  document.getElementById('generate-label').textContent = v ? 'Generating…' : 'Generate Review';
+}
+
+// ── API key ───────────────────────────────────────────────────────────────────
+function handleKeyInput() {
+  state.key = document.getElementById('key-input').value.trim();
+  updateKeyStatus();
+}
+
+function updateKeyStatus() {
+  const el  = document.getElementById('key-status');
+  const key = state.key;
+  if (!key) { el.textContent = 'No key set'; el.className = 'key-status'; return; }
+  const valid = key.startsWith('sk-');
+  el.textContent = valid ? '✓ Key set (format looks valid)' : '⚠ Key set — unexpected format';
+  el.className   = `key-status ${valid ? 'ok' : 'bad'}`;
+}
+
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => parseKeyFile(ev.target.result);
+  r.readAsText(file);
+  e.target.value = '';
+}
+
+function parseKeyFile(content) {
+  const match = content.match(/OPENAI_API_KEY\s*=\s*["']?([^\s"'\n]+)/i);
+  const el    = document.getElementById('key-status');
+  if (match) {
+    state.key = match[1];
+    document.getElementById('key-input').value = state.key;
+    el.textContent = '✓ Key loaded from file';
+    el.className   = 'key-status ok';
+  } else {
+    el.textContent = '⚠ No OPENAI_API_KEY found in file';
+    el.className   = 'key-status bad';
+  }
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function toggleSettings() {
+  document.getElementById('settings-panel').classList.toggle('open');
+}
+
+document.addEventListener('click', e => {
+  const panel = document.getElementById('settings-panel');
+  const btn   = document.getElementById('settings-btn');
+  if (!panel.contains(e.target) && !btn.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+// No server-side init needed — key is provided by the user in-browser.
+</script>
+</body>
+</html>
