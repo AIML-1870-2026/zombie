@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Science Experiment Generator</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0f0f13;
+  --surface: #1a1a24;
+  --sf2:     #252535;
+  --sf3:     #2e2e45;
+  --accent:  #6e56cf;
+  --acc-h:   #7c65d9;
+  --text:    #e8e8f0;
+  --muted:   #8888aa;
+  --ok:      #4ade80;
+  --err:     #f87171;
+  --warn:    #fbbf24;
+  --border:  #2e2e45;
+  --r:       8px;
+  --rl:      12px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 30px; height: 30px;
+  background: var(--accent);
+  border-radius: 7px;
+  display: grid; place-items: center;
+  font-size: 16px;
+}
+.logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+.logo-sub  { font-size: 11px; color: var(--muted); }
+
+/* ── Settings ────────────────────────────────────────────────────── */
+.settings-wrap { position: relative; }
+.settings-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--sf2); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 14px; border-radius: var(--r);
+  cursor: pointer; font-size: 13px; transition: background 0.15s;
+  font-family: inherit;
+}
+.settings-btn:hover { background: var(--sf3); }
+.key-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.key-dot.ok { background: var(--ok); }
+.caret { font-size: 9px; color: var(--muted); }
+
+.settings-panel {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  width: 300px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--rl);
+  padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  z-index: 200; display: none;
+}
+.settings-panel.open { display: block; }
+
+/* ── Form controls ───────────────────────────────────────────────── */
+select, input[type="text"], input[type="password"], textarea {
+  width: 100%; background: var(--sf2); border: 1px solid var(--border);
+  color: var(--text); padding: 9px 12px; border-radius: var(--r);
+  font-size: 13px; font-family: inherit; outline: none;
+  transition: border-color 0.15s;
+}
+select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+select { cursor: pointer; }
+
+.s-lbl {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--muted); margin-bottom: 8px; display: block;
+}
+.key-row { display: flex; gap: 8px; margin-bottom: 6px; }
+.key-row input { flex: 1; font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; }
+
+.btn-sm {
+  background: var(--sf2); border: 1px solid var(--border); color: var(--muted);
+  padding: 9px 12px; border-radius: var(--r); cursor: pointer;
+  font-size: 12px; white-space: nowrap; transition: all 0.15s; font-family: inherit;
+}
+.btn-sm:hover { background: var(--sf3); color: var(--text); }
+
+.key-status { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.key-status.ok  { color: var(--ok); }
+.key-status.bad { color: var(--err); }
+
+.privacy-note {
+  display: flex; gap: 8px; background: rgba(110,86,207,0.08);
+  border: 1px solid rgba(110,86,207,0.25); border-radius: var(--r);
+  padding: 10px 12px; font-size: 11px; color: var(--muted); line-height: 1.6;
+  margin-top: 14px;
+}
+.privacy-note .pi { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── Main layout ─────────────────────────────────────────────────── */
+main {
+  flex: 1; max-width: 860px; width: 100%;
+  margin: 0 auto; padding: 28px 24px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+
+/* ── Form card ───────────────────────────────────────────────────── */
+.form-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--rl); padding: 20px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+.grade-row { display: flex; gap: 16px; align-items: flex-start; }
+.grade-field { flex: 0 0 210px; }
+.supplies-field { flex: 1; }
+.supplies-area { resize: vertical; min-height: 88px; line-height: 1.6; }
+
+/* ── Quick-select pills ──────────────────────────────────────────── */
+.pills-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.pills-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill {
+  padding: 5px 12px; background: var(--sf2); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 20px; cursor: pointer;
+  font-size: 12px; font-family: inherit; transition: all 0.15s;
+}
+.pill:hover { background: var(--sf3); color: var(--text); }
+.pill.active {
+  border-color: var(--accent); color: var(--accent);
+  background: rgba(110,86,207,0.1);
+}
+
+/* ── Generate button ─────────────────────────────────────────────── */
+.send-row { display: flex; align-items: center; }
+.btn-generate {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--accent); color: #fff; border: none;
+  padding: 11px 28px; border-radius: var(--r);
+  font-size: 14px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: background 0.15s;
+}
+.btn-generate:hover:not(:disabled) { background: var(--acc-h); }
+.btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  border-radius: 50%; animation: spin 0.6s linear infinite; display: none;
+}
+.loading .spinner  { display: block; }
+.loading .gen-text { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Response card ───────────────────────────────────────────────── */
+.resp-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--rl); overflow: hidden;
+}
+.resp-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 16px; border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
+}
+.resp-meta-l { display: flex; align-items: center; gap: 8px; }
+.resp-actions { display: flex; gap: 8px; }
+
+.badge {
+  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+}
+.badge.easy   { background: rgba(74,222,128,0.12); color: var(--ok);   border: 1px solid rgba(74,222,128,0.3); }
+.badge.medium { background: rgba(251,191,36,0.12); color: var(--warn); border: 1px solid rgba(251,191,36,0.3); }
+.badge.hard   { background: rgba(248,113,113,0.12); color: var(--err); border: 1px solid rgba(248,113,113,0.3); }
+.badge.grade  { background: var(--sf2); color: var(--muted); border: 1px solid var(--border); }
+
+.btn-copy {
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  padding: 5px 10px; border-radius: var(--r); cursor: pointer;
+  font-size: 11px; font-family: inherit; transition: all 0.15s;
+}
+.btn-copy:hover { background: var(--sf2); color: var(--text); }
+
+.btn-save {
+  background: none; border: 1px solid var(--accent); color: var(--accent);
+  padding: 5px 12px; border-radius: var(--r); cursor: pointer;
+  font-size: 11px; font-family: inherit; transition: all 0.15s;
+}
+.btn-save:hover { background: rgba(110,86,207,0.12); }
+.btn-save:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Response body + markdown styles ─────────────────────────────── */
+.resp-body {
+  padding: 20px 24px; max-height: 580px; overflow-y: auto;
+  line-height: 1.75; font-size: 14px;
+}
+.resp-body h1 {
+  font-size: 19px; font-weight: 700; margin: 0 0 14px; color: var(--text);
+}
+.resp-body h2 {
+  font-size: 14px; font-weight: 700; margin: 22px 0 9px; color: var(--text);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border); padding-bottom: 6px;
+}
+.resp-body h3 {
+  font-size: 13px; font-weight: 600; margin: 14px 0 6px; color: var(--text);
+}
+.resp-body p  { margin: 0 0 10px; }
+.resp-body ul, .resp-body ol { margin: 0 0 12px 22px; }
+.resp-body li { margin-bottom: 5px; }
+.resp-body hr { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+.resp-body strong { font-weight: 600; }
+.resp-body em { color: var(--muted); font-style: italic; }
+
+.resp-error {
+  padding: 16px; color: var(--err); font-size: 13px;
+  display: flex; gap: 10px; line-height: 1.6;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+.empty { text-align: center; padding: 52px 24px; color: var(--muted); }
+.empty-icon { font-size: 40px; opacity: 0.35; margin-bottom: 14px; }
+.empty p { font-size: 13px; line-height: 1.7; }
+
+/* ── Saved experiments ───────────────────────────────────────────── */
+.saved-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--rl);
+}
+.saved-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; cursor: pointer; user-select: none;
+}
+.saved-toggle:hover { background: rgba(255,255,255,0.02); border-radius: var(--rl); }
+.saved-toggle-l { display: flex; align-items: center; gap: 10px; }
+.saved-title { font-size: 12px; font-weight: 600; }
+.saved-count { font-size: 11px; color: var(--muted); }
+.saved-body { display: none; border-top: 1px solid var(--border); }
+.saved-body.open { display: block; }
+
+.saved-entry { border-bottom: 1px solid var(--border); }
+.saved-entry:last-child { border-bottom: none; }
+
+.saved-entry-hdr {
+  display: flex; align-items: center;
+  padding: 12px 16px; cursor: pointer; gap: 10px;
+}
+.saved-entry-hdr:hover { background: var(--sf2); }
+.saved-entry-info { flex: 1; min-width: 0; }
+.saved-entry-title {
+  font-size: 13px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.saved-entry-meta {
+  font-size: 11px; color: var(--muted); margin-top: 4px;
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+.saved-entry-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.saved-entry-body {
+  display: none; padding: 20px 24px; border-top: 1px solid var(--border);
+  background: var(--bg); max-height: 460px; overflow-y: auto;
+  font-size: 14px; line-height: 1.75;
+}
+.saved-entry-body.open { display: block; }
+.saved-entry-body h1 { font-size: 19px; font-weight: 700; margin: 0 0 14px; }
+.saved-entry-body h2 {
+  font-size: 14px; font-weight: 700; margin: 22px 0 9px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border); padding-bottom: 6px;
+}
+.saved-entry-body h3 { font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+.saved-entry-body p  { margin: 0 0 10px; }
+.saved-entry-body ul, .saved-entry-body ol { margin: 0 0 12px 22px; }
+.saved-entry-body li { margin-bottom: 5px; }
+.saved-entry-body hr { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+.saved-entry-body strong { font-weight: 600; }
+.saved-entry-body em { color: var(--muted); font-style: italic; }
+
+.saved-empty { text-align: center; padding: 24px; font-size: 12px; color: var(--muted); }
+
+/* ── Misc ────────────────────────────────────────────────────────── */
+#file-upload { display: none; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--sf3); border-radius: 3px; }
+
+@media (max-width: 640px) {
+  main { padding: 16px; }
+  header { padding: 12px 16px; }
+  .logo-sub { display: none; }
+  .grade-row { flex-direction: column; }
+  .grade-field { flex: none; width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🔬</div>
+    <div>
+      <div class="logo-text">Science Experiment Generator</div>
+      <div class="logo-sub">Powered by OpenAI</div>
+    </div>
+  </div>
+
+  <div class="settings-wrap">
+    <button class="settings-btn" id="settings-btn" onclick="toggleSettings()">
+      <span class="key-dot" id="key-dot"></span>
+      <span id="settings-label">API Key</span>
+      <span class="caret">▾</span>
+    </button>
+
+    <div class="settings-panel" id="settings-panel">
+      <span class="s-lbl">OpenAI API Key</span>
+      <div class="key-row">
+        <input type="password" id="key-input" placeholder="Paste key or upload .env…" oninput="handleKeyInput()">
+        <button class="btn-sm" onclick="document.getElementById('file-upload').click()">Upload</button>
+        <input type="file" id="file-upload" accept=".env,.txt" onchange="handleFileUpload(event)">
+      </div>
+      <div class="key-status" id="key-status">No key set</div>
+      <div class="privacy-note">
+        <span class="pi">🔒</span>
+        <span>Key stored in memory only — never persisted. Sent exclusively to OpenAI's API. Cleared on tab close.</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<main>
+
+  <!-- Form card -->
+  <div class="form-card">
+
+    <!-- Grade level + Supplies -->
+    <div class="grade-row">
+      <div class="grade-field">
+        <label class="s-lbl" for="grade-sel">Grade Level</label>
+        <select id="grade-sel">
+          <option value="K-2">K–2 &nbsp;(Kindergarten – 2nd)</option>
+          <option value="3-5">3–5 &nbsp;(3rd – 5th Grade)</option>
+          <option value="6-8" selected>6–8 &nbsp;(6th – 8th Grade)</option>
+          <option value="9-12">9–12 (9th – 12th Grade)</option>
+        </select>
+      </div>
+      <div class="supplies-field">
+        <label class="s-lbl" for="supplies-input">Available Supplies</label>
+        <textarea class="supplies-area" id="supplies-input"
+          placeholder="e.g. baking soda, vinegar, food coloring, balloons…"></textarea>
+      </div>
+    </div>
+
+    <!-- Quick-add pills -->
+    <div>
+      <div class="pills-hdr">
+        <span class="s-lbl" style="margin-bottom:0;">Quick-Add Supplies</span>
+        <button class="btn-sm" onclick="clearSupplies()"
+          style="font-size:11px;padding:4px 10px;">Clear All</button>
+      </div>
+      <div class="pills-grid" id="pills-grid"></div>
+    </div>
+
+    <!-- Generate -->
+    <div class="send-row">
+      <button class="btn-generate" id="gen-btn" onclick="generate()">
+        <div class="spinner"></div>
+        <span class="gen-text">Generate Experiment</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Response area -->
+  <div id="resp-area">
+    <div class="empty">
+      <div class="empty-icon">🧪</div>
+      <p>Select a grade level, enter your available supplies,<br>and click Generate Experiment to get started.</p>
+    </div>
+  </div>
+
+  <!-- Saved experiments -->
+  <div class="saved-panel" id="saved-panel">
+    <div class="saved-toggle" onclick="toggleSaved()">
+      <div class="saved-toggle-l">
+        <span class="saved-title">Saved Experiments</span>
+        <span class="saved-count" id="saved-count">None saved</span>
+      </div>
+      <span id="saved-caret" style="font-size:10px;color:var(--muted);">▾</span>
+    </div>
+    <div class="saved-body" id="saved-body">
+      <div class="saved-list" id="saved-list"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Supplies list ─────────────────────────────────────────────────────────────
+const SUPPLIES = [
+  'Baking soda','Vinegar','Salt','Sugar','Food coloring','Dish soap',
+  'Cornstarch','Flour','Yeast','Hydrogen peroxide','Rubbing alcohol',
+  'Lemon juice','Milk','Eggs','Butter','Vegetable oil','Coffee filters',
+  'Paper towels','Aluminum foil','Plastic wrap','Ziplock bags',
+  'Rubber bands','Paper clips','Toothpicks','Straws','Cotton balls',
+  'Tape','Scissors','Ruler','Magnifying glass','Flashlight','Balloons',
+  'String','Yarn','Cardboard','Tissue paper','Newspaper',
+  'Index cards','Sponges','Stopwatch'
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const state = {
+  apiKey:  '',
+  loading: false,
+  current: null   // { rawText, renderedHTML, difficulty, title, grade, ts }
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderPills();
+  renderSaved();
+  document.getElementById('supplies-input').addEventListener('input', renderPills);
+});
+
+document.addEventListener('click', e => {
+  const panel = document.getElementById('settings-panel');
+  const btn   = document.getElementById('settings-btn');
+  if (!panel.contains(e.target) && !btn.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+});
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function toggleSettings() {
+  document.getElementById('settings-panel').classList.toggle('open');
+}
+
+// ── API key ───────────────────────────────────────────────────────────────────
+function handleKeyInput() {
+  state.apiKey = document.getElementById('key-input').value.trim();
+  updateKeyStatus();
+}
+
+function updateKeyStatus() {
+  const el    = document.getElementById('key-status');
+  const dot   = document.getElementById('key-dot');
+  const label = document.getElementById('settings-label');
+  const key   = state.apiKey;
+  if (!key) {
+    el.textContent = 'No key set';
+    el.className   = 'key-status';
+    dot.className  = 'key-dot';
+    label.textContent = 'API Key';
+    return;
+  }
+  const valid = key.startsWith('sk-');
+  el.textContent    = valid ? '✓ Key set (format looks valid)' : '⚠ Key set — unexpected format';
+  el.className      = `key-status ${valid ? 'ok' : 'bad'}`;
+  dot.className     = `key-dot ${valid ? 'ok' : ''}`;
+  label.textContent = valid ? 'Key Ready' : 'Check Key';
+}
+
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => parseKeyFile(ev.target.result);
+  r.readAsText(file);
+  e.target.value = '';
+}
+
+function parseKeyFile(content) {
+  const el = document.getElementById('key-status');
+  // Look for OPENAI_API_KEY = ...
+  const match = content.match(/OPENAI_API_KEY\s*=\s*["']?([^\s"'\n]+)/i);
+  if (match) {
+    state.apiKey = match[1];
+    document.getElementById('key-input').value = state.apiKey;
+    updateKeyStatus();
+    return;
+  }
+  // Fallback: any sk- token
+  const fallback = content.match(/\bsk-[A-Za-z0-9_-]{20,}\b/);
+  if (fallback) {
+    state.apiKey = fallback[0];
+    document.getElementById('key-input').value = state.apiKey;
+    updateKeyStatus();
+    return;
+  }
+  el.textContent = '⚠ No OpenAI key found in file';
+  el.className   = 'key-status bad';
+}
+
+// ── Quick-select pills ────────────────────────────────────────────────────────
+function renderPills() {
+  const grid = document.getElementById('pills-grid');
+  grid.innerHTML = SUPPLIES.map(s =>
+    `<button class="pill${isPillActive(s) ? ' active' : ''}" onclick="togglePill(this,'${esc(s)}')">${esc(s)}</button>`
+  ).join('');
+}
+
+function isPillActive(supply) {
+  const val = document.getElementById('supplies-input').value;
+  return val.split(',').map(s => s.trim().toLowerCase()).includes(supply.toLowerCase());
+}
+
+function togglePill(btn, supply) {
+  const field = document.getElementById('supplies-input');
+  const parts = field.value.split(',').map(s => s.trim()).filter(Boolean);
+  const idx   = parts.findIndex(p => p.toLowerCase() === supply.toLowerCase());
+  if (idx >= 0) {
+    parts.splice(idx, 1);
+  } else {
+    parts.push(supply);
+  }
+  field.value = parts.join(', ');
+  renderPills();
+}
+
+function clearSupplies() {
+  document.getElementById('supplies-input').value = '';
+  renderPills();
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────────
+async function generate() {
+  const supplies = document.getElementById('supplies-input').value.trim();
+  const grade    = document.getElementById('grade-sel').value;
+
+  if (!state.apiKey) {
+    alert('Please set your OpenAI API key in settings (top-right).');
+    document.getElementById('settings-panel').classList.add('open');
+    return;
+  }
+  if (!supplies) {
+    alert('Please enter at least one supply.');
+    document.getElementById('supplies-input').focus();
+    return;
+  }
+
+  setLoading(true);
+  showLoading();
+
+  try {
+    const rawText  = await callOpenAI(grade, supplies);
+    const { difficulty, body } = parseDifficulty(rawText);
+    const title    = parseTitle(body);
+    const rendered = renderMarkdown(body);
+
+    state.current = { rawText, renderedHTML: rendered, difficulty, title, grade, ts: new Date() };
+    showResponse(state.current);
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+function setLoading(v) {
+  state.loading = v;
+  const btn = document.getElementById('gen-btn');
+  btn.classList.toggle('loading', v);
+  btn.disabled = v;
+}
+
+// ── OpenAI API ────────────────────────────────────────────────────────────────
+async function callOpenAI(grade, supplies) {
+  const systemPrompt =
+`You are a science experiment designer for K–12 classrooms. When given a grade level and a list of available supplies, you generate a single, complete science experiment that is safe, engaging, and appropriate for that grade level.
+
+Your response must follow this exact format:
+**Difficulty:** [Easy | Medium | Hard]
+
+# [Experiment Title]
+
+**Objective:** ...
+
+## Materials
+- ...
+
+## Procedure
+1. ...
+
+## Expected Results
+...
+
+## The Science Behind It
+...
+
+Keep the language and complexity appropriate for the grade level specified. Use only the supplies listed — do not require anything else.`;
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${state.apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: `Grade Level: ${grade}\nAvailable Supplies: ${supplies}` }
+      ],
+      max_tokens: 1500
+    })
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = err?.error?.message || `HTTP ${res.status}`;
+    if (res.status === 401) throw new Error('Invalid API key — check your OpenAI key in settings.');
+    if (res.status === 429) throw new Error('Rate limit exceeded — wait a moment and try again.');
+    if (res.status === 400) throw new Error(`Bad request: ${msg}`);
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  return data.choices[0].message.content;
+}
+
+// ── Parsing ───────────────────────────────────────────────────────────────────
+function parseDifficulty(text) {
+  const match = text.match(/^\*\*Difficulty:\*\*\s*(Easy|Medium|Hard)/im);
+  if (!match) return { difficulty: null, body: text };
+  const body = text.replace(/^\*\*Difficulty:\*\*\s*(Easy|Medium|Hard)\r?\n?/im, '').trimStart();
+  return { difficulty: match[1], body };
+}
+
+function parseTitle(text) {
+  const match = text.match(/^#\s+(.+)/m);
+  return match ? match[1].trim() : 'Untitled Experiment';
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function showLoading() {
+  document.getElementById('resp-area').innerHTML = `
+    <div class="resp-card">
+      <div class="resp-body" style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">
+        <div style="margin-bottom:12px;">Generating your experiment…</div>
+        <div style="display:inline-block;width:18px;height:18px;border:2px solid var(--border);
+          border-top-color:var(--accent);border-radius:50%;animation:spin 0.6s linear infinite;"></div>
+      </div>
+    </div>`;
+}
+
+function showResponse(entry) {
+  const diffBadge  = entry.difficulty
+    ? `<span class="badge ${entry.difficulty.toLowerCase()}">${entry.difficulty}</span>`
+    : '';
+  const gradeBadge = `<span class="badge grade">${entry.grade}</span>`;
+
+  document.getElementById('resp-area').innerHTML = `
+    <div class="resp-card">
+      <div class="resp-meta">
+        <div class="resp-meta-l">
+          ${diffBadge}${gradeBadge}
+          <span>${entry.ts.toLocaleTimeString()}</span>
+        </div>
+        <div class="resp-actions">
+          <button class="btn-copy" id="copy-btn" onclick="copyResponse()">Copy</button>
+          <button class="btn-save" id="save-btn" onclick="saveExperiment()">+ Save</button>
+        </div>
+      </div>
+      <div class="resp-body">${entry.renderedHTML}</div>
+    </div>`;
+}
+
+function showError(message) {
+  document.getElementById('resp-area').innerHTML = `
+    <div class="resp-card">
+      <div class="resp-error">
+        <span>✗</span><div>${esc(message)}</div>
+      </div>
+    </div>`;
+}
+
+// ── Copy ──────────────────────────────────────────────────────────────────────
+function copyResponse() {
+  if (!state.current) return;
+  navigator.clipboard.writeText(state.current.rawText).then(() => {
+    const btn = document.getElementById('copy-btn');
+    if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); }
+  });
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+function saveExperiment() {
+  if (!state.current) return;
+  const saved = loadSaved();
+  saved.unshift({
+    id:          Date.now(),
+    title:       state.current.title,
+    grade:       state.current.grade,
+    difficulty:  state.current.difficulty,
+    renderedHTML: state.current.renderedHTML,
+    rawText:     state.current.rawText,
+    ts:          state.current.ts.toISOString()
+  });
+  localStorage.setItem('seg_saved', JSON.stringify(saved));
+  renderSaved();
+
+  // Open saved panel
+  document.getElementById('saved-body').classList.add('open');
+  document.getElementById('saved-caret').textContent = '▴';
+
+  const btn = document.getElementById('save-btn');
+  if (btn) { btn.textContent = '✓ Saved'; btn.disabled = true; }
+}
+
+function loadSaved() {
+  try { return JSON.parse(localStorage.getItem('seg_saved') || '[]'); }
+  catch { return []; }
+}
+
+function deleteSaved(id) {
+  const saved = loadSaved().filter(e => e.id !== id);
+  localStorage.setItem('seg_saved', JSON.stringify(saved));
+  renderSaved();
+}
+
+function toggleEntry(id) {
+  const body  = document.getElementById(`entry-body-${id}`);
+  const caret = document.getElementById(`entry-caret-${id}`);
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (caret) caret.textContent = open ? '▴' : '▾';
+}
+
+function toggleSaved() {
+  const body  = document.getElementById('saved-body');
+  const caret = document.getElementById('saved-caret');
+  caret.textContent = body.classList.toggle('open') ? '▴' : '▾';
+}
+
+function renderSaved() {
+  const saved   = loadSaved();
+  const countEl = document.getElementById('saved-count');
+  const listEl  = document.getElementById('saved-list');
+
+  countEl.textContent = saved.length ? `${saved.length} saved` : 'None saved';
+
+  if (!saved.length) {
+    listEl.innerHTML = '<div class="saved-empty">No saved experiments yet.</div>';
+    return;
+  }
+
+  listEl.innerHTML = saved.map(e => {
+    const diffBadge = e.difficulty
+      ? `<span class="badge ${e.difficulty.toLowerCase()}"
+           style="font-size:10px;padding:2px 8px;">${e.difficulty}</span>`
+      : '';
+    const gradeBadge =
+      `<span class="badge grade" style="font-size:10px;padding:2px 8px;">${e.grade}</span>`;
+    const date = new Date(e.ts).toLocaleDateString();
+
+    return `
+      <div class="saved-entry">
+        <div class="saved-entry-hdr" onclick="toggleEntry(${e.id})">
+          <div class="saved-entry-info">
+            <div class="saved-entry-title">${esc(e.title)}</div>
+            <div class="saved-entry-meta">
+              ${diffBadge}${gradeBadge}<span>${date}</span>
+            </div>
+          </div>
+          <div class="saved-entry-actions">
+            <button class="btn-sm"
+              style="font-size:11px;padding:4px 10px;color:var(--err);"
+              onclick="event.stopPropagation();deleteSaved(${e.id})">✕</button>
+            <span id="entry-caret-${e.id}"
+              style="font-size:10px;color:var(--muted);padding:0 4px;">▾</span>
+          </div>
+        </div>
+        <div class="saved-entry-body" id="entry-body-${e.id}">
+          ${e.renderedHTML}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Markdown renderer ─────────────────────────────────────────────────────────
+function renderMarkdown(text) {
+  const lines = text.split('\n');
+  let html = '';
+  let inUL = false;
+  let inOL = false;
+
+  const closeList = () => {
+    if (inUL) { html += '</ul>'; inUL = false; }
+    if (inOL) { html += '</ol>'; inOL = false; }
+  };
+
+  for (const line of lines) {
+    let m;
+    if (/^---+$/.test(line.trim())) {
+      closeList(); html += '<hr>'; continue;
+    }
+    if ((m = line.match(/^### (.+)/))) {
+      closeList(); html += `<h3>${inlineFmt(m[1])}</h3>`; continue;
+    }
+    if ((m = line.match(/^## (.+)/))) {
+      closeList(); html += `<h2>${inlineFmt(m[1])}</h2>`; continue;
+    }
+    if ((m = line.match(/^# (.+)/))) {
+      closeList(); html += `<h1>${inlineFmt(m[1])}</h1>`; continue;
+    }
+    if ((m = line.match(/^[-*]\s+(.+)/))) {
+      if (inOL) { html += '</ol>'; inOL = false; }
+      if (!inUL) { html += '<ul>'; inUL = true; }
+      html += `<li>${inlineFmt(m[1])}</li>`; continue;
+    }
+    if ((m = line.match(/^\d+\.\s+(.+)/))) {
+      if (inUL) { html += '</ul>'; inUL = false; }
+      if (!inOL) { html += '<ol>'; inOL = true; }
+      html += `<li>${inlineFmt(m[1])}</li>`; continue;
+    }
+    if (line.trim() === '') {
+      closeList(); continue;
+    }
+    closeList();
+    html += `<p>${inlineFmt(line)}</p>`;
+  }
+  closeList();
+  return html;
+}
+
+function inlineFmt(text) {
+  text = esc(text);
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>');
+  return text;
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>
